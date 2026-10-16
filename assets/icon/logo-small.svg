@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <path id="pin" d="M64 125 L32.4 84.6 A40 40 0 1 1 95.6 84.6 Z" />
+    <clipPath id="pin-clip">
+      <use href="#pin" />
+    </clipPath>
+    <clipPath id="eye-clip">
+      <circle cx="64" cy="62" r="25" />
+    </clipPath>
+  </defs>
+  <use href="#pin" fill="#43b762" />
+  <rect x="64" y="0" width="64" height="128" fill="#179248" clip-path="url(#pin-clip)" />
+  <circle cx="64" cy="62" r="25" fill="#f1c219" />
+  <rect x="30" y="68" width="68" height="26" fill="#f7a81c" clip-path="url(#eye-clip)" />
+  <ellipse cx="64" cy="62" rx="7" ry="20" fill="#1a1a1a" />
+  <circle cx="64" cy="62" r="25" fill="none" stroke="#1a1a1a" stroke-width="5" />
+  <path transform="rotate(-10 64 16)" d="M40 30 L36 3 L52 14 L64 -2 L76 14 L92 3 L88 30 Z" fill="#f1c219" stroke="#1a1a1a" stroke-width="6" stroke-linejoin="round" />
+</svg>

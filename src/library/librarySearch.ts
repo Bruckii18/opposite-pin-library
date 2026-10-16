@@ -1,0 +1,60 @@
+import { describePin } from '../wcl/pinString';
+import type { PinSet, SavedPin } from './librarySchema';
+import { tagKey, uniqueTags } from './tags';
+
+export interface LibraryFilter {
+  readonly text: string;
+  readonly tags: readonly string[];
+}
+
+interface Taggable {
+  readonly tags: readonly string[];
+}
+
+const WHITESPACE = /\s+/;
+
+export const EMPTY_FILTER: LibraryFilter = { text: '', tags: [] };
+
+export function filterPins(pins: readonly SavedPin[], filter: LibraryFilter): SavedPin[] {
+  return pins.filter((pin) =>
+    matchesFilter(pin, filter, [pin.name, pin.description, describePin(pin.pinString).summary]),
+  );
+}
+
+export function filterSets(sets: readonly PinSet[], filter: LibraryFilter): PinSet[] {
+  return sets.filter((set) => matchesFilter(set, filter, [set.name, set.description]));
+}
+
+export function collectTags(entries: readonly Taggable[]): string[] {
+  return uniqueTags(entries.flatMap((entry) => entry.tags)).sort((first, second) =>
+    first.localeCompare(second),
+  );
+}
+
+export function toggleFilterTag(filter: LibraryFilter, tag: string): LibraryFilter {
+  const isSelected = filter.tags.some((selectedTag) => tagKey(selectedTag) === tagKey(tag));
+  return {
+    ...filter,
+    tags: isSelected
+      ? filter.tags.filter((selectedTag) => tagKey(selectedTag) !== tagKey(tag))
+      : [...filter.tags, tag],
+  };
+}
+
+function matchesFilter(
+  entry: Taggable,
+  filter: LibraryFilter,
+  searchableTexts: readonly string[],
+): boolean {
+  const entryTagKeys = entry.tags.map(tagKey);
+  const haystack = [...searchableTexts, ...entryTagKeys].join(' ').toLowerCase();
+  const hasAllSelectedTags = filter.tags.every((tag) => entryTagKeys.includes(tagKey(tag)));
+  return hasAllSelectedTags && searchTerms(filter.text).every((term) => haystack.includes(term));
+}
+
+function searchTerms(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(WHITESPACE)
+    .filter((term) => term !== '');
+}
