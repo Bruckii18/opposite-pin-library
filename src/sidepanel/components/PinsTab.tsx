@@ -4,6 +4,7 @@ import type { SavedPin, SavedPinId } from '../../library/librarySchema';
 import { collectTags, EMPTY_FILTER, filterPins } from '../../library/librarySearch';
 import { isCreating, isEditing } from '../forms/editorState';
 import { EMPTY_PIN_FORM_VALUES, pinFormValuesFromPin } from '../forms/pinFormModel';
+import { SAVED_VIEW_TOGGLE_LABEL } from '../forms/viewFormModel';
 import { useEntityEditor } from '../hooks/useEntityEditor';
 import { useLibraryActions } from '../hooks/useLibrary';
 import { EmptyState } from './EmptyState';
@@ -37,6 +38,7 @@ export function PinsTab({ pins }: PinsTabProps) {
           title="New pin"
           initialValues={EMPTY_PIN_FORM_VALUES}
           canEditPinString
+          viewToggleLabel={SAVED_VIEW_TOGGLE_LABEL}
           submitLabel="Save pin"
           onSubmit={pinEditor.saveNew}
           onCancel={pinEditor.closeEditor}
@@ -58,6 +60,7 @@ export function PinsTab({ pins }: PinsTabProps) {
                 title={`Edit “${pin.name}”`}
                 initialValues={pinFormValuesFromPin(pin)}
                 canEditPinString
+                viewToggleLabel={SAVED_VIEW_TOGGLE_LABEL}
                 submitLabel="Save changes"
                 onSubmit={pinEditor.saveEdit(pin.id)}
                 onCancel={pinEditor.closeEditor}

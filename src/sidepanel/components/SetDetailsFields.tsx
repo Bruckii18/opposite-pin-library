@@ -1,11 +1,11 @@
 import { useId } from 'react';
-import type { SetDetailsValues, SetFormErrors } from '../forms/setFormModel';
+import type { SetDetailsTextField, SetDetailsValues, SetFormErrors } from '../forms/setFormModel';
 import { FormField } from './FormField';
 
 type SetDetailsFieldsProps = {
   readonly values: SetDetailsValues;
   readonly errors: SetFormErrors;
-  readonly onFieldChange: (field: keyof SetDetailsValues, value: string) => void;
+  readonly onFieldChange: (field: SetDetailsTextField, value: string) => void;
 };
 
 export function SetDetailsFields({ values, errors, onFieldChange }: SetDetailsFieldsProps) {

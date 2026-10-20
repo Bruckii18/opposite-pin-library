@@ -1,3 +1,5 @@
+import { isViewParams, type ViewParams } from './viewParams';
+
 export const ROUTE_PINS_REQUEST_EVENT = 'opposite-pin-library:route-pins-request';
 export const ROUTE_PINS_RESPONSE_EVENT = 'opposite-pin-library:route-pins-response';
 
@@ -12,6 +14,7 @@ export type RoutePinsStatus = (typeof RoutePinsStatus)[keyof typeof RoutePinsSta
 export interface RoutePinsRequest {
   readonly requestId: string;
   readonly pinsQueryValue: string | null;
+  readonly viewParams: ViewParams | null;
 }
 
 export interface RoutePinsResponse {
@@ -30,8 +33,13 @@ export function decodeRoutePinsRequest(eventDetail: unknown): RoutePinsRequest |
   const candidate = parseBridgeJson(eventDetail);
   return isRecord(candidate) &&
     typeof candidate.requestId === 'string' &&
-    (typeof candidate.pinsQueryValue === 'string' || candidate.pinsQueryValue === null)
-    ? { requestId: candidate.requestId, pinsQueryValue: candidate.pinsQueryValue }
+    (typeof candidate.pinsQueryValue === 'string' || candidate.pinsQueryValue === null) &&
+    (isViewParams(candidate.viewParams) || candidate.viewParams === null)
+    ? {
+        requestId: candidate.requestId,
+        pinsQueryValue: candidate.pinsQueryValue,
+        viewParams: candidate.viewParams,
+      }
     : null;
 }
 

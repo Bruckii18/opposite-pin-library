@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSequentialFactory, pinDraft } from '../test/libraryFixtures';
+import { createSequentialFactory, FIXED_TIMESTAMP, pinDraft } from '../test/libraryFixtures';
 import { CAST_FILTER, DEATH_BADGE } from '../test/pinFixtures';
 import { addPin } from './libraryOperations';
 import type { LibraryRepository } from './libraryRepository';
-import { createEmptyLibrary, type PinLibrary } from './librarySchema';
+import { createEmptyLibrary, CURRENT_SCHEMA_VERSION, type PinLibrary } from './librarySchema';
 import { LibraryNotReadyError, LibraryStatus, LibraryStore } from './libraryStore';
 import { readStoredLibrary, UnreadableLibraryError } from './storedLibrary';
 
@@ -77,5 +77,49 @@ describe('readStoredLibrary', () => {
 
   it('rejects damaged data instead of silently replacing it', () => {
     expect(() => readStoredLibrary({ schemaVersion: 1, pins: 'oops', sets: [] })).toThrow(UnreadableLibraryError);
+  });
+
+  it('migrates a version 1 library to the current version without adding saved views', () => {
+    const storedPin = {
+      id: 'pin-1',
+      name: 'Deaths',
+      description: 'Who died first',
+      tags: ['raid'],
+      pinString: DEATH_BADGE,
+      createdAt: FIXED_TIMESTAMP,
+      updatedAt: FIXED_TIMESTAMP,
+    };
+    const storedSet = {
+      id: 'set-1',
+      name: 'Raid',
+      description: '',
+      tags: [],
+      pinIds: ['pin-1'],
+      createdAt: FIXED_TIMESTAMP,
+      updatedAt: FIXED_TIMESTAMP,
+    };
+
+    const library = readStoredLibrary({ schemaVersion: 1, pins: [storedPin], sets: [storedSet] });
+
+    expect(library).toStrictEqual({ schemaVersion: CURRENT_SCHEMA_VERSION, pins: [storedPin], sets: [storedSet] });
+  });
+
+  it('reads saved views and keeps only the allow-listed params', () => {
+    const library = addPin(
+      createEmptyLibrary(),
+      { ...pinDraft('Deaths', DEATH_BADGE), viewParams: { type: 'deaths' } },
+      createSequentialFactory(),
+    );
+    const storedPin = { ...library.pins[0], viewParams: { type: 'deaths', fight: '4', difficulty: '5' } };
+
+    const readLibrary = readStoredLibrary({ ...library, pins: [storedPin] });
+
+    expect(readLibrary.pins[0]?.viewParams).toEqual({ type: 'deaths' });
+  });
+
+  it('rejects data from a newer schema version', () => {
+    expect(() => readStoredLibrary({ schemaVersion: CURRENT_SCHEMA_VERSION + 1, pins: [], sets: [] })).toThrow(
+      'Update the extension',
+    );
   });
 });

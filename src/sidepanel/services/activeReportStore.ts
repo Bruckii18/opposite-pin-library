@@ -1,11 +1,13 @@
 import { logError } from '../../shared/errors';
 import type { PinString } from '../../wcl/pinString';
-import { parseWclReportUrl, readActivePins } from '../../wcl/reportUrl';
+import { parseWclReportUrl, readActivePins, readViewParams } from '../../wcl/reportUrl';
+import type { ViewParams } from '../../wcl/viewParams';
 
 export interface ActiveReport {
   readonly tabId: number;
   readonly url: string;
   readonly activePins: readonly PinString[];
+  readonly view: ViewParams;
 }
 
 export const ActiveTabStatus = {
@@ -80,7 +82,12 @@ function toActiveTabState(tab: chrome.tabs.Tab | undefined): ActiveTabState {
   }
   return {
     status: ActiveTabStatus.Report,
-    report: { tabId: tab.id, url: reportUrl.href, activePins: readActivePins(reportUrl) },
+    report: {
+      tabId: tab.id,
+      url: reportUrl.href,
+      activePins: readActivePins(reportUrl),
+      view: readViewParams(reportUrl),
+    },
   };
 }
 

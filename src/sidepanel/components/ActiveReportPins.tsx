@@ -3,16 +3,18 @@ import { findPinByPinString } from '../../library/libraryOperations';
 import type { SavedPin } from '../../library/librarySchema';
 import { withOccurrenceKeys } from '../../shared/occurrenceKeys';
 import type { PinString } from '../../wcl/pinString';
+import type { ViewParams } from '../../wcl/viewParams';
 import { useActivePinSaving } from '../hooks/useActivePinSaving';
 import { ActivePinRow } from './ActivePinRow';
 import { SaveActivePinsAsSetForm } from './SaveActivePinsAsSetForm';
 
 type ActiveReportPinsProps = {
   readonly activePins: readonly PinString[];
+  readonly activeView: ViewParams;
   readonly libraryPins: readonly SavedPin[];
 };
 
-export function ActiveReportPins({ activePins, libraryPins }: ActiveReportPinsProps) {
+export function ActiveReportPins({ activePins, activeView, libraryPins }: ActiveReportPinsProps) {
   const saving = useActivePinSaving(activePins);
   const keyedPins = useMemo(() => withOccurrenceKeys(activePins), [activePins]);
   const hasActivePins = activePins.length > 0;
@@ -33,6 +35,7 @@ export function ActiveReportPins({ activePins, libraryPins }: ActiveReportPinsPr
           <ActivePinRow
             key={key}
             pin={pin}
+            activeView={activeView}
             savedPin={findPinByPinString(libraryPins, pin)}
             isSaveFormOpen={saving.pinBeingSaved === pin}
             onStartSaving={() => saving.startSavingPin(pin)}
@@ -49,6 +52,7 @@ export function ActiveReportPins({ activePins, libraryPins }: ActiveReportPinsPr
       {saving.isSavingAsSet && (
         <SaveActivePinsAsSetForm
           pinCount={activePins.length}
+          activeView={activeView}
           onSubmit={saving.saveAsSet}
           onCancel={saving.cancelSavingAsSet}
         />

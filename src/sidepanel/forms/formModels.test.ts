@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { savedPinIdSchema } from '../../library/librarySchema';
 import { DEATH_BADGE } from '../../test/pinFixtures';
-import { EMPTY_PIN_FORM_VALUES, validatePinForm } from './pinFormModel';
-import { EMPTY_SET_FORM_VALUES, togglePinSelection, validateSetForm } from './setFormModel';
+import { EMPTY_PIN_FORM_VALUES, pinFormValuesForActivePin, validatePinForm } from './pinFormModel';
+import {
+  EMPTY_SET_FORM_VALUES,
+  setDetailsValuesForActiveReport,
+  togglePinSelection,
+  validateSetDetails,
+  validateSetForm,
+} from './setFormModel';
+import { summarizeViewParams, validateViewForm } from './viewFormModel';
 
 const FIRST_PIN_ID = savedPinIdSchema.parse('pin-1');
 const SECOND_PIN_ID = savedPinIdSchema.parse('pin-2');
@@ -10,6 +17,7 @@ const SECOND_PIN_ID = savedPinIdSchema.parse('pin-2');
 describe('validatePinForm', () => {
   it('builds a draft with trimmed text, parsed tags and a suggested name', () => {
     const validation = validatePinForm({
+      ...EMPTY_PIN_FORM_VALUES,
       pinInput: ` ${DEATH_BADGE} `,
       name: '  ',
       description: ' Who died first ',
@@ -23,6 +31,7 @@ describe('validatePinForm', () => {
         name: 'Badge: type = "death"',
         description: 'Who died first',
         tags: ['raid', 'mythic'],
+        viewParams: undefined,
       },
     });
   });
@@ -46,6 +55,57 @@ describe('validatePinForm', () => {
       pinString: '2$Off$#244F4B$expression$type = "cast"',
       name: 'Filter: type = "cast"',
     });
+  });
+});
+
+describe('view fields', () => {
+  it('saves no view unless the checkbox is ticked', () => {
+    const values = pinFormValuesForActivePin(DEATH_BADGE, { type: 'damage-taken', view: 'events' });
+
+    const validation = validatePinForm(values);
+
+    expect(values.view.isEnabled).toBe(false);
+    expect(validation.valid && validation.output.viewParams).toBeUndefined();
+  });
+
+  it('captures the current view of the report when the checkbox is ticked', () => {
+    const values = pinFormValuesForActivePin(DEATH_BADGE, { type: 'damage-taken', ability: '1304424' });
+
+    const validation = validatePinForm({ ...values, view: { ...values.view, isEnabled: true } });
+
+    expect(validation.valid && validation.output.viewParams).toEqual({ type: 'damage-taken', ability: '1304424' });
+  });
+
+  it('trims the fields and drops empty ones, so an empty layout means Tables', () => {
+    expect(
+      validateViewForm({ isEnabled: true, params: { type: ' auras ', ability: '  ', view: '' } }),
+    ).toEqual({ valid: true, viewParams: { type: 'auras' } });
+    expect(validateViewForm({ isEnabled: true, params: {} })).toEqual({ valid: true, viewParams: {} });
+  });
+
+  it('requires a numeric spell ID for the ability', () => {
+    const validation = validatePinForm({
+      ...EMPTY_PIN_FORM_VALUES,
+      pinInput: DEATH_BADGE,
+      view: { isEnabled: true, params: { ability: 'Fireball' } },
+    });
+
+    expect(validation).toEqual({ valid: false, errors: { view: 'Ability (spell ID) must be a number.' } });
+  });
+
+  it('saves the current view with a set saved from the active pins', () => {
+    const values = setDetailsValuesForActiveReport({ type: 'debuffs', ability: '1304424' });
+
+    const validation = validateSetDetails({ ...values, name: 'Prog', view: { ...values.view, isEnabled: true } });
+
+    expect(validation.valid && validation.output.viewParams).toEqual({ type: 'debuffs', ability: '1304424' });
+  });
+
+  it('summarizes a saved view for the list label', () => {
+    expect(summarizeViewParams({ type: 'damage-taken', ability: '1304424', view: 'events' })).toBe(
+      'damage-taken · 1304424 · events',
+    );
+    expect(summarizeViewParams({})).toBe('default');
   });
 });
 

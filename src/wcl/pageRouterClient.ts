@@ -6,11 +6,15 @@ import {
   RoutePinsStatus,
   type RoutePinsResponse,
 } from './pageBridgeProtocol';
+import type { ViewParams } from './viewParams';
 
-export type RoutePins = (pinsQueryValue: string | null) => Promise<RoutePinsResponse>;
+export type RoutePins = (
+  pinsQueryValue: string | null,
+  viewParams: ViewParams | null,
+) => Promise<RoutePinsResponse>;
 
 export function createPageRouterClient(eventTarget: EventTarget, timeoutMs: number): RoutePins {
-  return (pinsQueryValue) =>
+  return (pinsQueryValue, viewParams) =>
     new Promise((resolve) => {
       const requestId = crypto.randomUUID();
       const timeoutId = setTimeout(
@@ -34,7 +38,7 @@ export function createPageRouterClient(eventTarget: EventTarget, timeoutMs: numb
       eventTarget.addEventListener(ROUTE_PINS_RESPONSE_EVENT, handleResponse);
       eventTarget.dispatchEvent(
         new CustomEvent(ROUTE_PINS_REQUEST_EVENT, {
-          detail: encodeBridgeMessage({ requestId, pinsQueryValue }),
+          detail: encodeBridgeMessage({ requestId, pinsQueryValue, viewParams }),
         }),
       );
     });

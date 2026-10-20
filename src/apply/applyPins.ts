@@ -1,6 +1,11 @@
 import { describeError } from '../shared/errors';
-import type { PinString } from '../wcl/pinString';
-import { createApplyPlan, isUnchanged, type ApplyMode, type PinApplyPlan } from './applyPlan';
+import {
+  createApplyPlan,
+  isUnchanged,
+  type PinApplyPlan,
+  type PinApplyRequest,
+  type ReportState,
+} from './applyPlan';
 import {
   notApplied,
   StrategyOutcomeStatus,
@@ -20,6 +25,7 @@ export interface ApplyPinsResult {
   readonly outcome: ApplyPinsOutcome;
   readonly strategy: ApplyStrategyName | null;
   readonly activePinCount: number;
+  readonly isViewChanged: boolean;
 }
 
 export interface StrategyFailure {
@@ -35,27 +41,25 @@ export class ApplyPinsError extends Error {
 }
 
 export interface ApplyPinsDependencies {
-  readonly readActivePins: () => readonly PinString[];
+  readonly readReportState: () => ReportState;
   readonly strategies: readonly ApplyStrategy[];
 }
 
-export type ApplyPins = (
-  pinStrings: readonly PinString[],
-  mode: ApplyMode,
-) => Promise<ApplyPinsResult>;
+export type ApplyPins = (request: PinApplyRequest) => Promise<ApplyPinsResult>;
 
-export function createApplyPins({ readActivePins, strategies }: ApplyPinsDependencies): ApplyPins {
-  return async (pinStrings, mode) => {
-    const plan = createApplyPlan(readActivePins(), pinStrings, mode);
+export function createApplyPins({ readReportState, strategies }: ApplyPinsDependencies): ApplyPins {
+  return async (request) => {
+    const plan = createApplyPlan(readReportState(), request);
     const activePinCount = plan.targetPins.length;
+    const isViewChanged = plan.targetView !== null;
     if (isUnchanged(plan)) {
-      return { outcome: ApplyPinsOutcome.Unchanged, strategy: null, activePinCount };
+      return { outcome: ApplyPinsOutcome.Unchanged, strategy: null, activePinCount, isViewChanged };
     }
     const failures: StrategyFailure[] = [];
     for (const strategy of strategies) {
       const outcome = await attemptStrategy(strategy, plan);
       if (outcome.status !== StrategyOutcomeStatus.NotApplied) {
-        return { outcome: outcome.status, strategy: strategy.name, activePinCount };
+        return { outcome: outcome.status, strategy: strategy.name, activePinCount, isViewChanged };
       }
       failures.push({ strategy: strategy.name, reason: outcome.reason });
     }

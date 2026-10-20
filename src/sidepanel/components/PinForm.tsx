@@ -2,11 +2,13 @@ import { useId, useState, type ChangeEvent } from 'react';
 import type { PinDraft } from '../../library/libraryOperations';
 import { suggestPinName } from '../../library/pinNaming';
 import { interpretPinInput, PinInputKind } from '../../wcl/pinInput';
-import { validatePinForm, type PinFormField, type PinFormValues } from '../forms/pinFormModel';
+import { validatePinForm, type PinFormValues, type PinTextField } from '../forms/pinFormModel';
+import type { ViewFormValues } from '../forms/viewFormModel';
 import { useFormSubmission } from '../hooks/useFormSubmission';
 import { FormActions } from './FormActions';
 import { FormField } from './FormField';
 import { PinSummary } from './PinSummary';
+import { ViewParamsFields } from './ViewParamsFields';
 
 const PIN_INPUT_HINT = 'Paste a string from WCL\'s Copy Pin button, or a filter expression like type = "cast".';
 const FILTER_EXPRESSION_HINT = 'Recognized as a filter expression. It is saved as a Filter pin, like WCL\'s Filter Expression box does.';
@@ -15,6 +17,7 @@ type PinFormProps = {
   readonly title: string;
   readonly initialValues: PinFormValues;
   readonly canEditPinString: boolean;
+  readonly viewToggleLabel: string;
   readonly submitLabel: string;
   readonly onSubmit: (draft: PinDraft) => Promise<void>;
   readonly onCancel: () => void;
@@ -24,6 +27,7 @@ export function PinForm({
   title,
   initialValues,
   canEditPinString,
+  viewToggleLabel,
   submitLabel,
   onSubmit,
   onCancel,
@@ -35,8 +39,10 @@ export function PinForm({
   const isFilterExpression = pinInput.valid && pinInput.kind === PinInputKind.FilterExpression;
 
   const updateField =
-    (field: PinFormField) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    (field: PinTextField) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setValues((current) => ({ ...current, [field]: event.target.value }));
+
+  const updateView = (view: ViewFormValues): void => setValues((current) => ({ ...current, view }));
 
   return (
     <form className="form" onSubmit={submit} aria-label={title}>
@@ -91,6 +97,12 @@ export function PinForm({
           onChange={updateField('tags')}
         />
       </FormField>
+      <ViewParamsFields
+        toggleLabel={viewToggleLabel}
+        values={values.view}
+        error={errors.view}
+        onChange={updateView}
+      />
       <FormActions submitLabel={submitLabel} isSaving={isSaving} onCancel={onCancel} />
     </form>
   );

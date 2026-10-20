@@ -1,4 +1,5 @@
 import type { PinString } from '../wcl/pinString';
+import type { ViewParams } from '../wcl/viewParams';
 import type { EntityFactory } from './entityFactory';
 import type { PinLibrary, PinSet, PinSetId, SavedPin, SavedPinId } from './librarySchema';
 import { nameForCopy, suggestPinName } from './pinNaming';
@@ -8,12 +9,14 @@ export interface PinDraft {
   readonly description: string;
   readonly tags: readonly string[];
   readonly pinString: PinString;
+  readonly viewParams?: ViewParams | undefined;
 }
 
 export interface PinSetDetails {
   readonly name: string;
   readonly description: string;
   readonly tags: readonly string[];
+  readonly viewParams?: ViewParams | undefined;
 }
 
 export interface PinSetDraft extends PinSetDetails {
@@ -138,10 +141,10 @@ function createSet(draft: PinSetDraft, factory: EntityFactory): PinSet {
   return { id: factory.newSetId(), ...copySetDraft(draft), createdAt: timestamp, updatedAt: timestamp };
 }
 
-function copyPinDraft({ name, description, tags, pinString }: PinDraft) {
-  return { name, description, tags: [...tags], pinString };
+function copyPinDraft({ name, description, tags, pinString, viewParams }: PinDraft) {
+  return { name, description, tags: [...tags], pinString, viewParams };
 }
 
-function copySetDraft({ name, description, tags, pinIds }: PinSetDraft) {
-  return { name, description, tags: [...tags], pinIds: [...pinIds] };
+function copySetDraft({ name, description, tags, pinIds, viewParams }: PinSetDraft) {
+  return { name, description, tags: [...tags], pinIds: [...pinIds], viewParams };
 }

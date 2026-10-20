@@ -1,34 +1,40 @@
 import { ApplyMode } from '../../apply/applyPlan';
-import type { PinString } from '../../wcl/pinString';
+import type { ApplyTarget } from '../../library/applyTargets';
 import { usePinApplication } from '../pinApplication/PinApplicationContext';
 
+const APPLY_TITLE = 'Apply these pins to this report';
+const REPLACE_TITLE = 'Replace the pins that are active on this report with these';
+const ADD_TO_CURRENT_TITLE = 'Keep the pins that are active on this report and add these';
+
 type ApplyButtonsProps = {
-  readonly pins: readonly PinString[];
+  readonly target: ApplyTarget;
 };
 
-export function ApplyButtons({ pins }: ApplyButtonsProps) {
-  const { canApply, applyPins } = usePinApplication();
-  const isDisabled = !canApply || pins.length === 0;
+export function ApplyButtons({ target }: ApplyButtonsProps) {
+  const { canApply, hasActivePins, applyTarget } = usePinApplication();
+  const isDisabled = !canApply || target.pins.length === 0;
   return (
     <>
       <button
         type="button"
         className="button button--primary button--small"
         disabled={isDisabled}
-        title="Apply on top of the pins that are already active on this report"
-        onClick={() => void applyPins(pins, ApplyMode.Add)}
+        title={hasActivePins ? REPLACE_TITLE : APPLY_TITLE}
+        onClick={() => void applyTarget(target, ApplyMode.Replace)}
       >
         Apply
       </button>
-      <button
-        type="button"
-        className="button button--small"
-        disabled={isDisabled}
-        title="Remove the current pins on this report and apply these instead"
-        onClick={() => void applyPins(pins, ApplyMode.Replace)}
-      >
-        Replace Current
-      </button>
+      {hasActivePins && (
+        <button
+          type="button"
+          className="button button--small"
+          disabled={isDisabled}
+          title={ADD_TO_CURRENT_TITLE}
+          onClick={() => void applyTarget(target, ApplyMode.Add)}
+        >
+          Add to current
+        </button>
+      )}
     </>
   );
 }

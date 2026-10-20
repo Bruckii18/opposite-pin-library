@@ -1,5 +1,12 @@
 import { joinPins, splitPins, type PinString } from './pinString';
-import { DIALOG_QUERY_PARAM, PINS_QUERY_PARAM, REPORT_PATH_PREFIX, WCL_HOSTNAME } from './wclContract';
+import { pickViewParams, type ViewParams } from './viewParams';
+import {
+  DIALOG_QUERY_PARAM,
+  PINS_QUERY_PARAM,
+  REPORT_PATH_PREFIX,
+  VIEW_QUERY_PARAMS,
+  WCL_HOSTNAME,
+} from './wclContract';
 
 const SECURE_PROTOCOL = 'https:';
 
@@ -21,6 +28,10 @@ export function readActivePins(reportUrl: URL): PinString[] {
   return pinsQueryValue === null ? [] : splitPins(pinsQueryValue);
 }
 
+export function readViewParams(reportUrl: URL): ViewParams {
+  return pickViewParams(Object.fromEntries(reportUrl.searchParams));
+}
+
 export function toPinsQueryValue(pins: readonly PinString[]): string | null {
   return pins.length === 0 ? null : joinPins(pins);
 }
@@ -33,6 +44,19 @@ export function withPins(reportUrl: URL, pins: readonly PinString[]): URL {
     updatedUrl.searchParams.delete(PINS_QUERY_PARAM);
   } else {
     updatedUrl.searchParams.set(PINS_QUERY_PARAM, pinsQueryValue);
+  }
+  return updatedUrl;
+}
+
+export function withViewParams(reportUrl: URL, viewParams: ViewParams): URL {
+  const updatedUrl = new URL(reportUrl);
+  for (const param of VIEW_QUERY_PARAMS) {
+    const value = viewParams[param];
+    if (value === undefined) {
+      updatedUrl.searchParams.delete(param);
+    } else {
+      updatedUrl.searchParams.set(param, value);
+    }
   }
   return updatedUrl;
 }

@@ -15,13 +15,15 @@ export function PinApplicationProvider({ children }: PinApplicationProviderProps
   const { trackTask } = useStatus();
   const activeTab = useActiveTab();
   const [isApplying, setIsApplying] = useState(false);
+  const hasActivePins =
+    activeTab.status === ActiveTabStatus.Report && activeTab.report.activePins.length > 0;
 
-  const applyPins = useCallback<PinApplication['applyPins']>(
-    async (pins, mode) => {
+  const applyTarget = useCallback<PinApplication['applyTarget']>(
+    async (target, mode) => {
       setIsApplying(true);
       await trackTask(
-        () => pinApplier.applyPins(pins, mode),
-        (result) => describeApplyResult(result, mode),
+        () => pinApplier.applyPins(target.pins, mode, target.view.viewParams),
+        (result) => describeApplyResult(result, mode, target.view),
       );
       setIsApplying(false);
     },
@@ -31,10 +33,11 @@ export function PinApplicationProvider({ children }: PinApplicationProviderProps
   const pinApplication = useMemo<PinApplication>(
     () => ({
       canApply: activeTab.status === ActiveTabStatus.Report && !isApplying,
+      hasActivePins,
       isApplying,
-      applyPins,
+      applyTarget,
     }),
-    [activeTab.status, isApplying, applyPins],
+    [activeTab.status, hasActivePins, isApplying, applyTarget],
   );
 
   return (

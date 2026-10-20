@@ -4,13 +4,15 @@ import type { SavedPin, SavedPinId } from '../../library/librarySchema';
 import {
   togglePinSelection,
   validateSetForm,
-  type SetDetailsValues,
+  type SetDetailsTextField,
   type SetFormValues,
 } from '../forms/setFormModel';
+import { SAVED_VIEW_TOGGLE_LABEL, type ViewFormValues } from '../forms/viewFormModel';
 import { useFormSubmission } from '../hooks/useFormSubmission';
 import { FormActions } from './FormActions';
 import { PinPicker } from './PinPicker';
 import { SetDetailsFields } from './SetDetailsFields';
+import { ViewParamsFields } from './ViewParamsFields';
 
 type SetFormProps = {
   readonly title: string;
@@ -32,8 +34,10 @@ export function SetForm({
   const [values, setValues] = useState(initialValues);
   const { errors, isSaving, submit } = useFormSubmission(values, validateSetForm, onSubmit);
 
-  const updateDetail = (field: keyof SetDetailsValues, value: string): void =>
+  const updateDetail = (field: SetDetailsTextField, value: string): void =>
     setValues((current) => ({ ...current, [field]: value }));
+
+  const updateView = (view: ViewFormValues): void => setValues((current) => ({ ...current, view }));
 
   const togglePin = (pinId: SavedPinId): void =>
     setValues((current) => ({ ...current, pinIds: togglePinSelection(current.pinIds, pinId) }));
@@ -47,6 +51,12 @@ export function SetForm({
         selectedPinIds={values.pinIds}
         error={errors.pinIds}
         onToggle={togglePin}
+      />
+      <ViewParamsFields
+        toggleLabel={SAVED_VIEW_TOGGLE_LABEL}
+        values={values.view}
+        error={errors.view}
+        onChange={updateView}
       />
       <FormActions submitLabel={submitLabel} isSaving={isSaving} onCancel={onCancel} />
     </form>

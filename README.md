@@ -11,8 +11,10 @@ searchable library, groups them into sets and applies them to the open report wi
 - Paste pin strings manually (from WCL's **Copy Pin** button or from a guildmate), or paste a bare
   filter expression such as `type = "cast"` (from a guide, for example) and it becomes a Filter pin.
 - Name, describe, tag, search, edit, duplicate and delete pins and sets.
-- Apply a pin or a whole set: **Apply** keeps the pins that are already active, **Replace Current**
-  swaps them out.
+- Apply a pin or a whole set: **Apply** replaces the pins that are active on the report. When pins
+  are already active, **Add to current** keeps them and adds these instead.
+- Optionally save the report view (tab, ability, layout) with a pin or set, so applying it also
+  opens that view. Saved views work on any report.
 - Import and export the library, or a single set, as JSON to share it with a guild or coach.
 - No backend, no tracking, no external requests. Data stays in `chrome.storage.local`.
 
@@ -62,13 +64,31 @@ In popup mode:
 - **This report:** lists the pins that are active on the report in the current tab. **Save**
   stores one pin; pins already in the library show **✓ Saved**. **Save all as set** stores every
   active pin (reusing pins you already saved) and groups them into a new set.
+- **Also save current view (tab, ability, layout):** tick this box in either save form to store
+  the report view you are looking at (for example *Damage Taken*, ability 1304424, *Events*)
+  with the pin or set. Only the tab, the ability and the layout are stored. Fight, boss,
+  difficulty, source and the other report settings are not, so the view works on any report. The
+  fields stay editable before you save.
 - **Pins / Sets tabs:** search by name, description, tag or pin expression, and filter by tag
   chips. **+ New pin** accepts a pasted pin string or a bare filter expression. An expression is
   saved as a Filter pin (`2$Off$#244F4B$expression$…`), exactly as WCL's *Filter Expression* box
   would create it. Expressions cannot contain `$` or `^`. **+ New set** lets you pick pins from the
   library.
-- **Apply / Replace Current:** applies a pin or set to the report in the current tab. Pins that are already
-  active are not added twice.
+- **Edit a pin or set:** the form has the same view checkbox with a field each for the tab (for
+  example `damage-taken`), the ability (a numeric spell ID) and the layout (for example `events`
+  or `timeline`). An empty field is removed from the URL when you apply, so an empty layout means
+  *Tables*, and a ticked box with all fields empty switches to the default view. Untick the box to
+  remove the saved view. Pins and sets with a saved view show a **View: …** label.
+- **Apply / Add to current:** **Apply** applies a pin or set to the report in the current tab and
+  replaces the pins that are active there, so only these remain. When pins are already active,
+  **Add to current** shows up next to it: it keeps them and adds these (pins that are already
+  active are not added twice). If the pin or set has a saved view, the report switches to it in
+  the same step and keeps its fight, boss and other settings. Items without a saved view leave the
+  view as it is.
+- **Conflicting views:** a set's pins can have saved views of their own. When a set is applied,
+  its pins count in set order and the set itself counts last, and the last saved view wins. So a
+  view saved on the set beats the views of its pins. The status message says which view was used
+  when they differ.
 - **⋯ menu:** copy the pin string, duplicate, export a set, or delete (click twice to confirm).
 - **Import JSON / Export library** (panel footer): exports are versioned JSON files. When you
   import, pins whose pin string already exists are reused, and sets that already exist (same name,
@@ -95,6 +115,26 @@ These findings were checked on a live report on 2026-10-16:
   anywhere, so it can't be saved.
 - **Copy Pin** calls the browser's own `window.prompt()` with the pin string, so there is no DOM
   to hook. The extension doesn't need it, because the URL already contains the same strings.
+
+Checked on 2026-10-19, for saved views:
+
+- **The report view lives in the URL next to `pins`**, for example
+  `/reports/<code>?boss=3513&difficulty=5&wipes=1&view=events&type=damage-taken&ability=1304424&pins=…`.
+  - `type` is the tab (`damage-taken`, `auras`, `debuffs`, `casts`, `deaths`, …).
+  - `ability` is the ability dropdown. It is a spell ID, a game ID, so it is the same in every
+    report.
+  - `view` is the layout. It is missing for *Tables*, otherwise `events`, `timeline`, ….
+- **Only report-independent params are saved.** The allow-list (`type`, `ability`, `view`) is
+  `ViewQueryParam` in [wclContract.ts](src/wcl/wclContract.ts). Report-specific params (report code,
+  `fight`, `source`, `target`, `boss`, `difficulty`, `wipes`, `start`, `end`) are never stored or
+  overwritten. When a view is applied, every param outside the allow-list stays exactly as it is
+  in the current URL. Anything else in stored or imported data is dropped when it is read. To
+  support another view param, add it to `ViewQueryParam` and give it a form field in
+  [viewFormModel.ts](src/sidepanel/forms/viewFormModel.ts) (TypeScript reports the missing field).
+- **`window.queryRouting.set(query)` replaces the whole query.** Calling it with only `{ pins }`
+  drops `boss`, `difficulty`, `type`, `view` and the rest. The page bridge always starts from
+  `queryRouting.get()`, replaces only `pins`, `modal` and (when a view is applied) the
+  allow-listed view params, and passes the merged query to `set()`.
 - **Pin string format:** `<type>[$extra…]$<graph>$<color>$<component>[$<component>…]`
   - type: 0 Decorator, 1 Badge, 2 Filter, 3 Summary (2 extra fields), 4 DPS Weight (1 extra field)
   - component: `expression$…`, `script$…` or a query (`damage$…`, `casts$…`, …)
@@ -103,21 +143,25 @@ These findings were checked on a live report on 2026-10-16:
 
 ### Apply strategy: why the URL comes first
 
-`applyPins(pinStrings, mode)` ([src/apply/applyPins.ts](src/apply/applyPins.ts)) builds the target
-pin list and tries these strategies in order. The first one that succeeds wins:
+`applyPins({ pins, mode, view })` ([src/apply/applyPins.ts](src/apply/applyPins.ts)) builds a plan
+with the target pin list and, if a saved view differs from the current one, the target view. It
+then tries these strategies in order. The first one that succeeds wins:
 
 | # | Strategy | How | When it is used |
 |---|----------|-----|-----------------|
-| 1 | **URL via page router** | A tiny script in the page calls WCL's `queryRouting.set()` with the new `pins` value, the same call WCL's *Create Pin* makes. | Default. Instant, no reload, supports whole sets and Replace Current. |
-| 2 | **Add Pin dialog (UI automation)** | Opens the dialog, switches to *From Paste*, pastes `pin^pin^…`, clicks *Create Pin*. | When the router is missing or ignores the change. It can only **add** pins. |
-| 3 | **URL via full page load** | Navigates to the report URL with the new `pins` parameter. | Last resort, for example Replace Current when the router is gone. |
+| 1 | **URL via page router** | A tiny script in the page merges the new `pins` value (and the saved view params) into `queryRouting.get()` and passes the result to WCL's `queryRouting.set()`, the same call WCL's *Create Pin* makes. | Default. Instant, no reload, supports whole sets, replacing the active pins and saved views. |
+| 2 | **Add Pin dialog (UI automation)** | Opens the dialog, switches to *From Paste*, pastes `pin^pin^…`, clicks *Create Pin*. | When the router is missing or ignores the change. It can only **add** pins and cannot change the view, so it steps aside when the plan changes the view. |
+| 3 | **URL via full page load** | Navigates to the report URL with the new `pins` parameter and the saved view params. | Last resort, for example replacing active pins or a view change when the router is gone. |
 
-Strategies 1 and 2 are checked: the extension waits until the report URL shows exactly the
-expected pins, otherwise it moves on to the next strategy. When the dialog fallback is used, the
-status message says so, which is your hint that WCL changed something.
+Pins and view always change in the same step: one `queryRouting.set()` call or one navigation.
+Because the dialog cannot set URL params, it doesn't apply pins without the view; the page load
+applies both instead. Strategies 1 and 2 are checked: the extension waits until the report URL
+shows exactly the expected pins (and the expected view params, if a view is applied), otherwise
+it moves on to the next strategy. When the dialog fallback is used, the status message says so,
+which is your hint that WCL changed something.
 
 The URL strategy was chosen as the primary path because Step 0 showed that the URL is WCL's own
-source of truth for pins. It handles a whole set in one step, supports Replace Current, and depends on one
+source of truth for pins. It handles a whole set in one step, can replace the active pins, and depends on one
 documented-by-behavior parameter rather than on dialog markup.
 
 ### Architecture
@@ -125,15 +169,17 @@ documented-by-behavior parameter rather than on dialog markup.
 ```
 src/
   wcl/           Everything WCL-specific (the only place to touch when WCL changes)
-    wclContract.ts     hostnames, URL params, separators, router global, dialog selectors
+    wclContract.ts     hostnames, URL params, view param allow-list, separators, router global, dialog selectors
     pinString.ts       pin string validation, splitting, labels
-    reportUrl.ts       read/write the pins param on report URLs
+    viewParams.ts      the saved view type: allow-list filtering, validation, comparison
+    reportUrl.ts       read/write the pins and view params on report URLs
     pinDialog.ts       Add Pin dialog automation
     pageBridgeProtocol.ts / pageRouterClient.ts   messages to the in-page router bridge
     strategies/        page router, pin dialog, page reload
-  apply/         applyPins orchestration and Apply/Replace Current planning (WCL-agnostic)
+  apply/         applyPins orchestration and replace / add planning (WCL-agnostic)
   content/       content-script.js (isolated world) and page-bridge.js (page's own scripts)
-  library/       schema (zod), pure operations, search, storage, import/export
+  library/       schema (zod) and migrations, pure operations, search, storage, import/export,
+                 apply targets (which pins and which saved view a pin or set applies)
   messaging/     side panel → content script message contract
   sidepanel/     React UI: services, hooks, components
   background/    service worker (side panel toggle, Arc popup fallback)
@@ -155,6 +201,8 @@ src/
 | Active pins don't show in the panel, or saved pins don't apply at all | `PINS_QUERY_PARAM` / `PIN_SEPARATOR` in [wclContract.ts](src/wcl/wclContract.ts), then [reportUrl.ts](src/wcl/reportUrl.ts) |
 | Status says "…through the Add Pin dialog" | WCL renamed its router global. Update `PAGE_ROUTER_GLOBAL` in [wclContract.ts](src/wcl/wclContract.ts). In the page console, `Object.keys(window).filter(k => /rout/i.test(k))` helps find the new name. |
 | Error "Add Pin dialog elements not found: #…" | Update `PIN_DIALOG_SELECTORS` in [wclContract.ts](src/wcl/wclContract.ts) (the message names the missing selector). |
+| A saved view no longer opens the right tab, ability or layout | `ViewQueryParam` in [wclContract.ts](src/wcl/wclContract.ts). Compare it with the params WCL writes into the URL when you switch tabs. |
+| Applying pins resets the fight, boss or other settings | The query merge in [pageBridge.ts](src/content/pageBridge.ts). `queryRouting.set()` must always get the full query from `queryRouting.get()`. |
 | Pin labels look wrong (type, color, summary) | The format codes in [pinString.ts](src/wcl/pinString.ts). |
 | Valid pins are rejected as "not a pin string" | `validatePinString` in [pinString.ts](src/wcl/pinString.ts) (it is deliberately lenient). |
 | A new WCL subdomain or host | `WCL_HOSTNAME` in [wclContract.ts](src/wcl/wclContract.ts) and `host_permissions` / `matches` in [public/manifest.json](public/manifest.json). |
@@ -169,18 +217,26 @@ instead of the roughly 100 KB `storage.sync`):
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "pins": [{ "id": "…", "name": "Raid deaths", "description": "", "tags": ["raid"],
              "pinString": "1$Off$#A33C3C$expression$type = \"death\"",
              "createdAt": "…", "updatedAt": "…" }],
   "sets": [{ "id": "…", "name": "Mythic review", "description": "", "tags": [],
-             "pinIds": ["…"], "createdAt": "…", "updatedAt": "…" }]
+             "pinIds": ["…"],
+             "viewParams": { "type": "damage-taken", "ability": "1304424", "view": "events" },
+             "createdAt": "…", "updatedAt": "…" }]
 }
 ```
 
+`viewParams` is optional on pins and sets. Without it, applying leaves the view alone. With it,
+the listed params are set and the other allow-listed params are removed, so `{}` means the default
+view.
+
 Export files add `"format": "opposite-pin-library"` and `"exportedAt"`. A set export contains the set
-and only its own pins. Data with a newer `schemaVersion` is rejected with a clear message instead
-of being overwritten, and damaged stored data is never replaced silently.
+and only its own pins. Older data is migrated when it is read: version 1 libraries and export files
+(from before saved views) load as version 2 with no saved views, and the stored library is written
+as version 2 on the next change. Data with a newer `schemaVersion` is rejected with a clear message
+instead of being overwritten, and damaged stored data is never replaced silently.
 
 ## Development
 

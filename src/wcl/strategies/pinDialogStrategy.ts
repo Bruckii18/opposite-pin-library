@@ -6,23 +6,26 @@ import {
   type ApplyStrategy,
 } from '../../apply/applyStrategy';
 import type { WaitUntil } from '../../shared/conditionWaiter';
-import type { WaitForActivePins } from '../activePinsWaiter';
+import type { WaitForAppliedPlan } from '../appliedPlanWaiter';
 import { locatePinDialog, openFreshPinDialog, submitPastedPins } from '../pinDialog';
 
 export interface PinDialogStrategyDependencies {
   readonly document: Document;
   readonly waitUntil: WaitUntil;
-  readonly waitForActivePins: WaitForActivePins;
+  readonly waitForAppliedPlan: WaitForAppliedPlan;
 }
 
 export function createPinDialogStrategy({
   document,
   waitUntil,
-  waitForActivePins,
+  waitForAppliedPlan,
 }: PinDialogStrategyDependencies): ApplyStrategy {
   return {
     name: ApplyStrategyName.PinDialog,
     async apply(plan) {
+      if (plan.targetView !== null) {
+        return notApplied('The Add Pin dialog cannot change the report view.');
+      }
       const appendedPins = findAppendedPins(plan);
       if (appendedPins === null) {
         return notApplied('The Add Pin dialog can only add pins, not remove active ones.');
@@ -36,7 +39,7 @@ export function createPinDialogStrategy({
         return notApplied('The Add Pin dialog did not open.');
       }
       submitPastedPins(lookup.elements, appendedPins);
-      const isReportShowingPins = await waitForActivePins(plan.targetPins);
+      const isReportShowingPins = await waitForAppliedPlan(plan);
       return isReportShowingPins ? APPLIED : notApplied('WCL did not add the pasted pins.');
     },
   };

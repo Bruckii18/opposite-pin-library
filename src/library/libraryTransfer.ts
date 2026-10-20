@@ -10,7 +10,7 @@ import {
   type SavedPinId,
 } from './librarySchema';
 import { findPinByPinString, resolveSetPins } from './libraryOperations';
-import { assertSupportedVersion, UnreadableLibraryError } from './storedLibrary';
+import { migrateToCurrentVersion, UnreadableLibraryError } from './storedLibrary';
 
 export const EXPORT_FORMAT = 'opposite-pin-library';
 
@@ -67,15 +67,7 @@ export function parseLibraryExport(fileContent: string): LibraryExport {
   if (typeof json !== 'object' || json === null || Reflect.get(json, 'format') !== EXPORT_FORMAT) {
     throw new ImportFileError('This is not an Opposite Pin Library export file.');
   }
-  try {
-    assertSupportedVersion(json);
-  } catch (error) {
-    throw new ImportFileError(
-      error instanceof UnreadableLibraryError ? error.message : 'Unsupported export file version.',
-      { cause: error },
-    );
-  }
-  const parsed = libraryExportSchema.safeParse(json);
+  const parsed = libraryExportSchema.safeParse(migrateExport(json));
   if (!parsed.success) {
     throw new ImportFileError(`The export file is invalid: ${z.prettifyError(parsed.error)}`, {
       cause: parsed.error,
@@ -114,6 +106,17 @@ function createExport(
     pins: [...pins],
     sets: [...sets],
   };
+}
+
+function migrateExport(json: unknown): unknown {
+  try {
+    return migrateToCurrentVersion(json);
+  } catch (error) {
+    throw new ImportFileError(
+      error instanceof UnreadableLibraryError ? error.message : 'Unsupported export file version.',
+      { cause: error },
+    );
+  }
 }
 
 function parseJson(fileContent: string): unknown {

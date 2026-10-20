@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { validatePinString, type PinString } from '../wcl/pinString';
+import { pickViewParams } from '../wcl/viewParams';
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export const savedPinIdSchema = z.string().min(1).brand<'SavedPinId'>();
 export const pinSetIdSchema = z.string().min(1).brand<'PinSetId'>();
@@ -15,6 +16,8 @@ export const pinStringSchema = z.string().transform((raw, context): PinString =>
   return validation.pinString;
 });
 
+export const viewParamsSchema = z.record(z.string(), z.string()).transform(pickViewParams);
+
 const timestampSchema = z.iso.datetime();
 
 export const savedPinSchema = z.object({
@@ -23,6 +26,7 @@ export const savedPinSchema = z.object({
   description: z.string(),
   tags: z.array(z.string()),
   pinString: pinStringSchema,
+  viewParams: viewParamsSchema.optional(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
 });
@@ -33,6 +37,7 @@ export const pinSetSchema = z.object({
   description: z.string(),
   tags: z.array(z.string()),
   pinIds: z.array(savedPinIdSchema),
+  viewParams: viewParamsSchema.optional(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
 });

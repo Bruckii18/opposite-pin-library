@@ -1,12 +1,15 @@
 import type { PinDraft } from '../../library/libraryOperations';
 import type { SavedPin } from '../../library/librarySchema';
 import type { PinString } from '../../wcl/pinString';
-import { pinFormValuesForPinString } from '../forms/pinFormModel';
+import type { ViewParams } from '../../wcl/viewParams';
+import { pinFormValuesForActivePin } from '../forms/pinFormModel';
+import { CAPTURE_VIEW_TOGGLE_LABEL } from '../forms/viewFormModel';
 import { PinForm } from './PinForm';
 import { PinSummary } from './PinSummary';
 
 type ActivePinRowProps = {
   readonly pin: PinString;
+  readonly activeView: ViewParams;
   readonly savedPin: SavedPin | undefined;
   readonly isSaveFormOpen: boolean;
   readonly onStartSaving: () => void;
@@ -16,6 +19,7 @@ type ActivePinRowProps = {
 
 export function ActivePinRow({
   pin,
+  activeView,
   savedPin,
   isSaveFormOpen,
   onStartSaving,
@@ -44,8 +48,9 @@ export function ActivePinRow({
       {isSaveFormOpen && (
         <PinForm
           title="Save this pin"
-          initialValues={pinFormValuesForPinString(pin)}
+          initialValues={pinFormValuesForActivePin(pin, activeView)}
           canEditPinString={false}
+          viewToggleLabel={CAPTURE_VIEW_TOGGLE_LABEL}
           submitLabel="Save pin"
           onSubmit={onSave}
           onCancel={onCancelSaving}

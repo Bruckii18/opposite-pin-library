@@ -24,8 +24,10 @@ function fakeTabsApi(initialUrl: string) {
 }
 
 describe('ActiveReportStore', () => {
-  it('reads the active pins of the report in the active tab', async () => {
-    const reportUrl = `https://www.warcraftlogs.com/reports/AbC123?pins=${encodeURIComponent(DEATH_BADGE)}`;
+  it('reads the active pins and view of the report in the active tab', async () => {
+    const reportUrl =
+      'https://www.warcraftlogs.com/reports/AbC123?fight=3&type=damage-taken&ability=1304424' +
+      `&pins=${encodeURIComponent(DEATH_BADGE)}`;
     const store = new ActiveReportStore(fakeTabsApi(reportUrl).tabs);
 
     store.start();
@@ -33,7 +35,12 @@ describe('ActiveReportStore', () => {
     await vi.waitFor(() =>
       expect(store.getSnapshot()).toEqual({
         status: ActiveTabStatus.Report,
-        report: { tabId: 7, url: reportUrl, activePins: [DEATH_BADGE] },
+        report: {
+          tabId: 7,
+          url: reportUrl,
+          activePins: [DEATH_BADGE],
+          view: { type: 'damage-taken', ability: '1304424' },
+        },
       }),
     );
   });

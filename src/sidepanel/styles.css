@@ -370,6 +370,28 @@ textarea.input {
   color: var(--color-kind-unknown);
 }
 
+.view-badge {
+  flex-shrink: 1;
+  align-self: flex-start;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 1px 6px;
+  border-radius: var(--radius-small);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pin-summary > .view-badge {
+  flex-shrink: 0;
+  align-self: auto;
+  max-width: 45%;
+  margin-left: auto;
+}
+
 .color-swatch {
   flex-shrink: 0;
   width: 10px;
@@ -509,13 +531,17 @@ textarea.input {
 
 .list-item-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
   margin-top: var(--space-1);
 }
 
-.list-item-actions-spacer {
-  flex: 1;
+.list-item-actions-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
 }
 
 .set-pin-names {
@@ -615,6 +641,22 @@ textarea.input {
 .field-error {
   color: var(--color-danger);
   font-size: 12px;
+}
+
+.view-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
 }
 
 .pin-picker {

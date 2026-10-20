@@ -25,6 +25,7 @@ export function ActiveReportSection({ libraryPins }: ActiveReportSectionProps) {
         <ActiveReportPins
           key={activeTab.report.tabId}
           activePins={activeTab.report.activePins}
+          activeView={activeTab.report.view}
           libraryPins={libraryPins}
         />
       );

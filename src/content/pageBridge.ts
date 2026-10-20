@@ -8,7 +8,12 @@ import {
   type RoutePinsRequest,
   type RoutePinsResponse,
 } from '../wcl/pageBridgeProtocol';
-import { DIALOG_QUERY_PARAM, PAGE_ROUTER_GLOBAL, PINS_QUERY_PARAM } from '../wcl/wclContract';
+import {
+  DIALOG_QUERY_PARAM,
+  PAGE_ROUTER_GLOBAL,
+  PINS_QUERY_PARAM,
+  VIEW_QUERY_PARAMS,
+} from '../wcl/wclContract';
 
 type RouteQuery = Record<string, string>;
 
@@ -17,7 +22,8 @@ interface QueryRouter {
   set(query: RouteQuery): void;
 }
 
-const REPLACED_QUERY_PARAMS: ReadonlySet<string> = new Set([DIALOG_QUERY_PARAM, PINS_QUERY_PARAM]);
+const PIN_QUERY_PARAMS: ReadonlySet<string> = new Set([DIALOG_QUERY_PARAM, PINS_QUERY_PARAM]);
+const PIN_AND_VIEW_QUERY_PARAMS: ReadonlySet<string> = new Set([...PIN_QUERY_PARAMS, ...VIEW_QUERY_PARAMS]);
 
 window.addEventListener(ROUTE_PINS_REQUEST_EVENT, (event) => {
   const request = decodeRoutePinsRequest(event instanceof CustomEvent ? event.detail : null);
@@ -35,7 +41,7 @@ function routePins(request: RoutePinsRequest): RoutePinsResponse {
     return respond(request, RoutePinsStatus.RouterMissing, `window.${PAGE_ROUTER_GLOBAL} is not available.`);
   }
   try {
-    router.set(withPinsQueryValue(router.get(), request.pinsQueryValue));
+    router.set(withRequestedParams(router.get(), request));
     return respond(request, RoutePinsStatus.Routed, '');
   } catch (error) {
     return respond(request, RoutePinsStatus.RouterFailed, describeError(error));
@@ -56,13 +62,20 @@ function isQueryRouter(candidate: unknown): candidate is QueryRouter {
   );
 }
 
-function withPinsQueryValue(query: RouteQuery, pinsQueryValue: string | null): RouteQuery {
+// queryRouting.set() replaces the whole query, so every param we don't own must be carried over.
+function withRequestedParams(
+  query: RouteQuery,
+  { pinsQueryValue, viewParams }: RoutePinsRequest,
+): RouteQuery {
+  const replacedParams = viewParams === null ? PIN_QUERY_PARAMS : PIN_AND_VIEW_QUERY_PARAMS;
   const preservedQuery = Object.fromEntries(
-    Object.entries(query).filter(([param]) => !REPLACED_QUERY_PARAMS.has(param)),
+    Object.entries(query).filter(([param]) => !replacedParams.has(param)),
   );
-  return pinsQueryValue === null
-    ? preservedQuery
-    : { ...preservedQuery, [PINS_QUERY_PARAM]: pinsQueryValue };
+  return {
+    ...preservedQuery,
+    ...viewParams,
+    ...(pinsQueryValue === null ? {} : { [PINS_QUERY_PARAM]: pinsQueryValue }),
+  };
 }
 
 function respond(

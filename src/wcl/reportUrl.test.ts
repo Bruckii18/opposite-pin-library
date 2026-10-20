@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { DEATH_BADGE, MOONFIRE_DECORATOR } from '../test/pinFixtures';
-import { parseWclReportUrl, readActivePins, toPinsQueryValue, withPins } from './reportUrl';
+import {
+  parseWclReportUrl,
+  readActivePins,
+  readViewParams,
+  toPinsQueryValue,
+  withPins,
+  withViewParams,
+} from './reportUrl';
+import { VIEW_QUERY_PARAMS } from './wclContract';
 
 const URL_CAPTURED_FROM_WCL =
   'https://www.warcraftlogs.com/reports/Xy7KpQ2mWn4RvB8d?fight=last&type=damage-done&view=events' +
@@ -65,6 +73,65 @@ describe('withPins', () => {
     expect(updatedUrl.searchParams.has('pins')).toBe(false);
   });
 });
+
+const URL_WITH_SAVED_VIEW =
+  'https://www.warcraftlogs.com/reports/Xy7KpQ2mWn4RvB8d?boss=3513&difficulty=5&wipes=1&view=events' +
+  '&type=damage-taken&ability=1304424&pins=1%24Off%24%23A33C3C%24expression%24type+%3D+%22death%22';
+
+const OTHER_REPORT_URL =
+  'https://www.warcraftlogs.com/reports/Qm3ZtR8vLp5KxN2w?fight=7&source=12&target=4&boss=2920' +
+  '&difficulty=4&wipes=2&start=1000&end=9000&type=casts&view=timeline';
+
+describe('readViewParams', () => {
+  it('reads only the allow-listed view params', () => {
+    expect(readViewParams(new URL(URL_WITH_SAVED_VIEW))).toEqual({
+      type: 'damage-taken',
+      ability: '1304424',
+      view: 'events',
+    });
+  });
+
+  it('reads the default view as no params and ignores empty ones', () => {
+    expect(readViewParams(new URL('https://www.warcraftlogs.com/reports/AbC123?fight=2&type='))).toEqual({});
+  });
+});
+
+describe('withViewParams', () => {
+  it('applies a view saved on one report to another report and changes only the allow-listed params', () => {
+    const savedView = readViewParams(new URL(URL_WITH_SAVED_VIEW));
+    const otherReport = new URL(OTHER_REPORT_URL);
+
+    const updatedUrl = withViewParams(otherReport, savedView);
+
+    expect(readViewParams(updatedUrl)).toEqual(savedView);
+    expect(updatedUrl.pathname).toBe(otherReport.pathname);
+    expect(withoutViewParams(updatedUrl)).toEqual(withoutViewParams(otherReport));
+  });
+
+  it('removes view params that the saved view does not have', () => {
+    const updatedUrl = withViewParams(new URL(OTHER_REPORT_URL), { type: 'deaths' });
+
+    expect(updatedUrl.searchParams.get('type')).toBe('deaths');
+    expect(updatedUrl.searchParams.has('view')).toBe(false);
+    expect(updatedUrl.searchParams.has('ability')).toBe(false);
+  });
+
+  it('resets to the default view for a saved view without params', () => {
+    expect(readViewParams(withViewParams(new URL(OTHER_REPORT_URL), {}))).toEqual({});
+  });
+
+  it('keeps the pins next to the view', () => {
+    const updatedUrl = withViewParams(withPins(new URL(OTHER_REPORT_URL), [DEATH_BADGE]), { type: 'debuffs' });
+
+    expect(readActivePins(updatedUrl)).toEqual([DEATH_BADGE]);
+  });
+});
+
+const VIEW_QUERY_PARAM_SET = new Set<string>(VIEW_QUERY_PARAMS);
+
+function withoutViewParams(url: URL): [string, string][] {
+  return [...url.searchParams].filter(([param]) => !VIEW_QUERY_PARAM_SET.has(param));
+}
 
 describe('toPinsQueryValue', () => {
   it('returns null for an empty pin list so the parameter can be removed', () => {
