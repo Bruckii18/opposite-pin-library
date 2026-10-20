@@ -1,6 +1,6 @@
 import type { EntityFactory } from '../library/entityFactory';
-import type { PinDraft } from '../library/libraryOperations';
-import { pinSetIdSchema, savedPinIdSchema } from '../library/librarySchema';
+import type { EntryDraft } from '../library/libraryOperations';
+import { libraryEntryIdSchema } from '../library/librarySchema';
 import type { PinString } from '../wcl/pinString';
 
 export const FIXED_TIMESTAMP = '2026-10-16T12:00:00.000Z';
@@ -8,14 +8,13 @@ export const FIXED_TIMESTAMP = '2026-10-16T12:00:00.000Z';
 export function createSequentialFactory(): EntityFactory {
   let sequence = 0;
   return {
-    newPinId: () => savedPinIdSchema.parse(`pin-${(sequence += 1)}`),
-    newSetId: () => pinSetIdSchema.parse(`set-${(sequence += 1)}`),
+    newEntryId: () => libraryEntryIdSchema.parse(`entry-${(sequence += 1)}`),
     timestamp: () => FIXED_TIMESTAMP,
   };
 }
 
-export function pinDraft(name: string, pinString: PinString, tags: readonly string[] = []): PinDraft {
-  return { name, description: '', tags, pinString };
+export function entryDraft(name: string, pins: readonly PinString[], tags: readonly string[] = []): EntryDraft {
+  return { name, description: '', tags, pins };
 }
 
 export function requireDefined<Value>(value: Value | undefined): Value {

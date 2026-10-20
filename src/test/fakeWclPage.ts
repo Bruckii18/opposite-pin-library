@@ -1,5 +1,5 @@
 import type { PinString } from '../wcl/pinString';
-import { readActivePins, withPins } from '../wcl/reportUrl';
+import { readActivePins, toPinsQueryValue, withQueryChange } from '../wcl/reportUrl';
 import { PAGE_ROUTER_GLOBAL, PIN_SEPARATOR, PINS_QUERY_PARAM } from '../wcl/wclContract';
 
 const PIN_DIALOG_MARKUP = `
@@ -15,6 +15,12 @@ const PIN_DIALOG_MARKUP = `
   </div>
 `;
 
+export type RoutedQuery = Readonly<Record<string, unknown>>;
+
+export interface FakeQueryRouter {
+  readonly routedQueries: readonly RoutedQuery[];
+}
+
 export interface FakeWclPage {
   readonly dialog: HTMLElement;
   readonly openButton: HTMLElement;
@@ -22,7 +28,8 @@ export interface FakeWclPage {
 }
 
 export function installFakeWclPage(initialPins: readonly PinString[]): FakeWclPage {
-  history.replaceState(null, '', withPins(new URL(location.href), initialPins).href);
+  const pinsQueryValue = toPinsQueryValue(initialPins);
+  history.replaceState(null, '', withQueryChange(new URL(location.href), { pinsQueryValue, viewParams: null }).href);
   document.body.innerHTML = PIN_DIALOG_MARKUP;
   const dialog = requireElement('#pins-ui');
   const openButton = requireElement('#pins-ui-toggle-tab');
@@ -48,16 +55,27 @@ export function installFakeWclPage(initialPins: readonly PinString[]): FakeWclPa
   return { dialog, openButton, readActivePins: () => readActivePins(new URL(location.href)) };
 }
 
-export function installFakeQueryRouter(): void {
+export function installFakeQueryRouter(): FakeQueryRouter {
+  const routedQueries: RoutedQuery[] = [];
   Reflect.set(window, PAGE_ROUTER_GLOBAL, {
     get: () => Object.fromEntries(new URL(location.href).searchParams),
-    set: (query: Record<string, string>) =>
-      history.pushState(null, '', `${location.pathname}?${new URLSearchParams(query).toString()}`),
+    set: (query: RoutedQuery) => {
+      routedQueries.push(query);
+      history.pushState(null, '', `${location.pathname}?${toSearchLikeWcl(query)}`);
+    },
   });
+  return { routedQueries };
 }
 
 export function removeFakeQueryRouter(): void {
   Reflect.deleteProperty(window, PAGE_ROUTER_GLOBAL);
+}
+
+function toSearchLikeWcl(query: RoutedQuery): string {
+  const entries = Object.entries(query).flatMap(([param, value]) =>
+    value === null || value === undefined ? [] : [[param, String(value)]],
+  );
+  return new URLSearchParams(entries).toString();
 }
 
 function appendPinsToUrl(pastedPins: string): void {

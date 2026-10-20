@@ -1,40 +1,47 @@
 import { describe, expect, it } from 'vitest';
-import { createSequentialFactory, pinDraft } from '../test/libraryFixtures';
+import { createSequentialFactory, entryDraft } from '../test/libraryFixtures';
 import { CAST_FILTER, DEATH_BADGE, MOONFIRE_DECORATOR } from '../test/pinFixtures';
-import { addPin } from './libraryOperations';
-import { createEmptyLibrary, type SavedPin } from './librarySchema';
-import { collectTags, EMPTY_FILTER, filterPins, toggleFilterTag } from './librarySearch';
+import { addEntry } from './libraryOperations';
+import { createEmptyLibrary, type LibraryEntry } from './librarySchema';
+import { collectTags, collectTagsByUsage, EMPTY_FILTER, filterEntries, toggleFilterTag } from './librarySearch';
 
-function savedPins(): SavedPin[] {
+function savedEntries(): LibraryEntry[] {
   const factory = createSequentialFactory();
   return [
-    pinDraft('Moonfire uptime', MOONFIRE_DECORATOR, ['Druid', 'dps']),
-    pinDraft('Raid deaths', DEATH_BADGE, ['raid']),
-    pinDraft('Casts', CAST_FILTER, ['DPS', 'raid']),
-  ].reduce((library, draft) => addPin(library, draft, factory), createEmptyLibrary()).pins;
+    entryDraft('Moonfire uptime', [MOONFIRE_DECORATOR], ['Druid', 'dps']),
+    entryDraft('Raid deaths', [DEATH_BADGE], ['raid']),
+    entryDraft('Prog review', [CAST_FILTER, DEATH_BADGE], ['DPS', 'raid']),
+  ].reduce((library, draft) => addEntry(library, draft, factory), createEmptyLibrary()).entries;
 }
 
-const names = (pins: readonly SavedPin[]) => pins.map((pin) => pin.name);
+const names = (entries: readonly LibraryEntry[]) => entries.map((entry) => entry.name);
 
-describe('filterPins', () => {
-  it('returns every pin for an empty filter', () => {
-    expect(names(filterPins(savedPins(), EMPTY_FILTER))).toHaveLength(3);
+describe('filterEntries', () => {
+  it('returns every entry for an empty filter', () => {
+    expect(names(filterEntries(savedEntries(), EMPTY_FILTER))).toHaveLength(3);
   });
 
-  it('matches every search term against names, tags and the pin expression', () => {
-    expect(names(filterPins(savedPins(), { text: 'raid DEATH', tags: [] }))).toEqual(['Raid deaths']);
-    expect(names(filterPins(savedPins(), { text: 'moonfire', tags: [] }))).toEqual(['Moonfire uptime']);
-    expect(names(filterPins(savedPins(), { text: '"cast"', tags: [] }))).toEqual(['Casts']);
+  it('matches every search term against names, tags and every pin expression', () => {
+    expect(names(filterEntries(savedEntries(), { text: 'raid DEATH', tags: [] }))).toEqual([
+      'Raid deaths',
+      'Prog review',
+    ]);
+    expect(names(filterEntries(savedEntries(), { text: 'moonfire', tags: [] }))).toEqual(['Moonfire uptime']);
+    expect(names(filterEntries(savedEntries(), { text: '"cast"', tags: [] }))).toEqual(['Prog review']);
   });
 
   it('requires all selected tags, ignoring case', () => {
-    expect(names(filterPins(savedPins(), { text: '', tags: ['dps', 'RAID'] }))).toEqual(['Casts']);
+    expect(names(filterEntries(savedEntries(), { text: '', tags: ['dps', 'RAID'] }))).toEqual(['Prog review']);
   });
 });
 
 describe('tag helpers', () => {
   it('collects unique tags sorted alphabetically', () => {
-    expect(collectTags(savedPins())).toEqual(['dps', 'Druid', 'raid']);
+    expect(collectTags(savedEntries())).toEqual(['dps', 'Druid', 'raid']);
+  });
+
+  it('orders tags by how often they are used, then alphabetically', () => {
+    expect(collectTagsByUsage(savedEntries())).toEqual(['dps', 'raid', 'Druid']);
   });
 
   it('toggles a tag in the filter regardless of case', () => {

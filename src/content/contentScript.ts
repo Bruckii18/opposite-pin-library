@@ -10,7 +10,7 @@ import { describeError } from '../shared/errors';
 import { createAppliedPlanWaiter } from '../wcl/appliedPlanWaiter';
 import { createPageRouterClient } from '../wcl/pageRouterClient';
 import { requirePinString } from '../wcl/pinString';
-import { isWclReportUrl, readActivePins, readViewParams } from '../wcl/reportUrl';
+import { isWclReportUrl, readActivePins, readViewQuery } from '../wcl/reportUrl';
 import { createPageReloadStrategy } from '../wcl/strategies/pageReloadStrategy';
 import { createPageRouterStrategy } from '../wcl/strategies/pageRouterStrategy';
 import { createPinDialogStrategy } from '../wcl/strategies/pinDialogStrategy';
@@ -66,7 +66,7 @@ async function handleApplyPinsRequest(request: ApplyPinsRequest): Promise<ApplyP
 
 function readReportState(): ReportState {
   const reportUrl = new URL(readCurrentUrl());
-  return { pins: readActivePins(reportUrl), view: readViewParams(reportUrl) };
+  return { pins: readActivePins(reportUrl), viewQuery: readViewQuery(reportUrl) };
 }
 
 function navigateAfterResponding(url: string): void {

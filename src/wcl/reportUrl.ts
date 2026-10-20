@@ -1,12 +1,7 @@
 import { joinPins, splitPins, type PinString } from './pinString';
-import { pickViewParams, type ViewParams } from './viewParams';
-import {
-  DIALOG_QUERY_PARAM,
-  PINS_QUERY_PARAM,
-  REPORT_PATH_PREFIX,
-  VIEW_QUERY_PARAMS,
-  WCL_HOSTNAME,
-} from './wclContract';
+import { buildReportQuery, pickViewQuery, type QueryChange } from './reportQuery';
+import { viewParamsFromQuery, type ViewParams, type ViewQuery } from './viewParams';
+import { PINS_QUERY_PARAM, REPORT_PATH_PREFIX, WCL_HOSTNAME } from './wclContract';
 
 const SECURE_PROTOCOL = 'https:';
 
@@ -29,36 +24,25 @@ export function readActivePins(reportUrl: URL): PinString[] {
 }
 
 export function readViewParams(reportUrl: URL): ViewParams {
-  return pickViewParams(Object.fromEntries(reportUrl.searchParams));
+  return viewParamsFromQuery(readQuery(reportUrl));
+}
+
+export function readViewQuery(reportUrl: URL): ViewQuery {
+  return pickViewQuery(readQuery(reportUrl));
 }
 
 export function toPinsQueryValue(pins: readonly PinString[]): string | null {
   return pins.length === 0 ? null : joinPins(pins);
 }
 
-export function withPins(reportUrl: URL, pins: readonly PinString[]): URL {
+export function withQueryChange(reportUrl: URL, change: QueryChange): URL {
   const updatedUrl = new URL(reportUrl);
-  const pinsQueryValue = toPinsQueryValue(pins);
-  updatedUrl.searchParams.delete(DIALOG_QUERY_PARAM);
-  if (pinsQueryValue === null) {
-    updatedUrl.searchParams.delete(PINS_QUERY_PARAM);
-  } else {
-    updatedUrl.searchParams.set(PINS_QUERY_PARAM, pinsQueryValue);
-  }
+  updatedUrl.search = new URLSearchParams(buildReportQuery(readQuery(reportUrl), change)).toString();
   return updatedUrl;
 }
 
-export function withViewParams(reportUrl: URL, viewParams: ViewParams): URL {
-  const updatedUrl = new URL(reportUrl);
-  for (const param of VIEW_QUERY_PARAMS) {
-    const value = viewParams[param];
-    if (value === undefined) {
-      updatedUrl.searchParams.delete(param);
-    } else {
-      updatedUrl.searchParams.set(param, value);
-    }
-  }
-  return updatedUrl;
+function readQuery(reportUrl: URL): Record<string, string> {
+  return Object.fromEntries(reportUrl.searchParams);
 }
 
 function isWclHostname(hostname: string): boolean {

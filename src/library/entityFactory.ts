@@ -1,13 +1,11 @@
-import { pinSetIdSchema, savedPinIdSchema, type PinSetId, type SavedPinId } from './librarySchema';
+import { libraryEntryIdSchema, type LibraryEntryId } from './librarySchema';
 
 export interface EntityFactory {
-  newPinId(): SavedPinId;
-  newSetId(): PinSetId;
+  newEntryId(): LibraryEntryId;
   timestamp(): string;
 }
 
 export const browserEntityFactory: EntityFactory = {
-  newPinId: () => savedPinIdSchema.parse(crypto.randomUUID()),
-  newSetId: () => pinSetIdSchema.parse(crypto.randomUUID()),
+  newEntryId: () => libraryEntryIdSchema.parse(crypto.randomUUID()),
   timestamp: () => new Date().toISOString(),
 };

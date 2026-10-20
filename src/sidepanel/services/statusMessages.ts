@@ -1,7 +1,6 @@
 import { ApplyMode } from '../../apply/applyPlan';
 import { ApplyPinsOutcome, type ApplyPinsResult } from '../../apply/applyPins';
 import { ApplyStrategyName } from '../../apply/applyStrategy';
-import type { ViewSelection } from '../../library/applyTargets';
 import type { ImportSummary } from '../../library/libraryTransfer';
 
 const APPLIED_TEXT_BY_MODE: Record<ApplyMode, string> = {
@@ -9,24 +8,15 @@ const APPLIED_TEXT_BY_MODE: Record<ApplyMode, string> = {
   [ApplyMode.Replace]: 'Applied the pins',
 };
 
-export function describeApplyResult(
-  result: ApplyPinsResult,
-  mode: ApplyMode,
-  viewSelection: ViewSelection,
-): string {
-  return [describeOutcome(result, mode), describeViewConflict(viewSelection)]
-    .filter((sentence) => sentence !== '')
-    .join(' ');
+export function describeApplyResult(result: ApplyPinsResult, mode: ApplyMode): string {
+  return describeOutcome(result, mode);
 }
 
-export function describeImportSummary(summary: ImportSummary): string {
-  return [
-    `Imported ${countLabel(summary.addedPins, 'new pin')} and ${countLabel(summary.addedSets, 'new set')}.`,
-    summary.reusedPins > 0 ? `${countLabel(summary.reusedPins, 'pin')} already existed.` : '',
-    summary.skippedSets > 0 ? `${countLabel(summary.skippedSets, 'set')} already existed.` : '',
-  ]
-    .filter((sentence) => sentence !== '')
-    .join(' ');
+export function describeImportSummary({ addedEntries, skippedEntries }: ImportSummary): string {
+  const added = `Imported ${countLabel(addedEntries, 'new entry', 'new entries')}.`;
+  return skippedEntries === 0
+    ? added
+    : `${added} ${countLabel(skippedEntries, 'entry', 'entries')} already existed.`;
 }
 
 function describeOutcome(result: ApplyPinsResult, mode: ApplyMode): string {
@@ -50,12 +40,6 @@ function describeAppliedExtra(result: ApplyPinsResult): string {
   return result.isViewChanged ? ' and switched to the saved view' : '';
 }
 
-function describeViewConflict({ conflictWinnerName }: ViewSelection): string {
-  return conflictWinnerName === null
-    ? ''
-    : `The saved views differ, so the last one ("${conflictWinnerName}") was used.`;
-}
-
-function countLabel(count: number, singularNoun: string): string {
-  return `${count} ${singularNoun}${count === 1 ? '' : 's'}`;
+function countLabel(count: number, singularNoun: string, pluralNoun: string): string {
+  return `${count} ${count === 1 ? singularNoun : pluralNoun}`;
 }

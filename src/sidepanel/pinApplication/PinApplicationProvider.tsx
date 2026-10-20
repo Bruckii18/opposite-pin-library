@@ -22,8 +22,8 @@ export function PinApplicationProvider({ children }: PinApplicationProviderProps
     async (target, mode) => {
       setIsApplying(true);
       await trackTask(
-        () => pinApplier.applyPins(target.pins, mode, target.view.viewParams),
-        (result) => describeApplyResult(result, mode, target.view),
+        () => pinApplier.applyPins(target.pins, mode, target.viewParams),
+        (result) => describeApplyResult(result, mode),
       );
       setIsApplying(false);
     },

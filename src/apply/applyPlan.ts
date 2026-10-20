@@ -1,5 +1,6 @@
 import type { PinString } from '../wcl/pinString';
-import { haveSameViewParams, type ViewParams } from '../wcl/viewParams';
+import { showsView } from '../wcl/reportQuery';
+import type { ViewParams, ViewQuery } from '../wcl/viewParams';
 
 export const ApplyMode = {
   Add: 'add',
@@ -9,7 +10,7 @@ export type ApplyMode = (typeof ApplyMode)[keyof typeof ApplyMode];
 
 export interface ReportState {
   readonly pins: readonly PinString[];
-  readonly view: ViewParams;
+  readonly viewQuery: ViewQuery;
 }
 
 export interface PinApplyRequest {
@@ -28,7 +29,7 @@ export function createApplyPlan(report: ReportState, request: PinApplyRequest): 
   return {
     activePins: report.pins,
     targetPins: planTargetPins(report.pins, request.pins, request.mode),
-    targetView: planTargetView(report.view, request.view),
+    targetView: planTargetView(report.viewQuery, request.view),
   };
 }
 
@@ -59,6 +60,6 @@ function planTargetPins(
     : uniqueRequestedPins;
 }
 
-function planTargetView(activeView: ViewParams, requestedView: ViewParams | null): ViewParams | null {
-  return requestedView === null || haveSameViewParams(activeView, requestedView) ? null : requestedView;
+function planTargetView(activeViewQuery: ViewQuery, requestedView: ViewParams | null): ViewParams | null {
+  return requestedView === null || showsView(activeViewQuery, requestedView) ? null : requestedView;
 }

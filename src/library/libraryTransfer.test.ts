@@ -1,146 +1,155 @@
 import { describe, expect, it } from 'vitest';
-import { createSequentialFactory, FIXED_TIMESTAMP, pinDraft, requireDefined } from '../test/libraryFixtures';
+import { createSequentialFactory, entryDraft, FIXED_TIMESTAMP, requireDefined } from '../test/libraryFixtures';
 import { CAST_FILTER, DEATH_BADGE, MOONFIRE_DECORATOR } from '../test/pinFixtures';
-import { addPin, addPinsAsSet } from './libraryOperations';
+import { addEntry, type EntryDraft } from './libraryOperations';
 import { createEmptyLibrary, CURRENT_SCHEMA_VERSION, type PinLibrary } from './librarySchema';
 import {
   EXPORT_FORMAT,
+  exportEntry,
   exportLibrary,
-  exportSet,
   ImportFileError,
   mergeImport,
   parseLibraryExport,
 } from './libraryTransfer';
 
-const VERSION_1_EXPORT = JSON.stringify({
-  format: EXPORT_FORMAT,
-  schemaVersion: 1,
-  exportedAt: FIXED_TIMESTAMP,
-  pins: [
-    {
-      id: 'old-pin',
-      name: 'Deaths',
-      description: '',
-      tags: ['raid'],
-      pinString: DEATH_BADGE,
-      createdAt: FIXED_TIMESTAMP,
-      updatedAt: FIXED_TIMESTAMP,
-    },
-  ],
-  sets: [
-    {
-      id: 'old-set',
-      name: 'Raid',
-      description: '',
-      tags: [],
-      pinIds: ['old-pin'],
-      createdAt: FIXED_TIMESTAMP,
-      updatedAt: FIXED_TIMESTAMP,
-    },
-  ],
-});
-
 function sharedLibrary(): PinLibrary {
   const factory = createSequentialFactory();
-  const withPin = addPin(createEmptyLibrary(), pinDraft('Moonfire', MOONFIRE_DECORATOR), factory);
-  return addPinsAsSet(withPin, [DEATH_BADGE, CAST_FILTER], { name: 'Raid', description: '', tags: [] }, factory);
+  const drafts: EntryDraft[] = [
+    { ...entryDraft('Moonfire', [MOONFIRE_DECORATOR]), viewParams: { tab: 'casts' } },
+    { ...entryDraft('Raid', [DEATH_BADGE, CAST_FILTER], ['raid']), viewParams: { tab: 'debuffs', hostility: '1' } },
+  ];
+  return drafts.reduce((library, draft) => addEntry(library, draft, factory), createEmptyLibrary());
 }
+
+const storedRecord = (fields: Record<string, unknown>) => ({
+  description: '',
+  tags: [],
+  createdAt: FIXED_TIMESTAMP,
+  updatedAt: FIXED_TIMESTAMP,
+  ...fields,
+});
 
 describe('export', () => {
   it('exports the whole library with format and schema version', () => {
     const exported = exportLibrary(sharedLibrary(), FIXED_TIMESTAMP);
 
-    expect(exported).toMatchObject({ format: EXPORT_FORMAT, schemaVersion: 2, exportedAt: FIXED_TIMESTAMP });
-    expect(exported.pins).toHaveLength(3);
-    expect(exported.sets).toHaveLength(1);
+    expect(exported).toMatchObject({ format: EXPORT_FORMAT, schemaVersion: 5, exportedAt: FIXED_TIMESTAMP });
+    expect(exported.entries.map((entry) => entry.name)).toEqual(['Moonfire', 'Raid']);
   });
 
-  it('exports a set together with only its own pins', () => {
-    const library = sharedLibrary();
+  it('exports a single entry with all of its pins', () => {
+    const entry = requireDefined(sharedLibrary().entries[1]);
 
-    const exported = exportSet(library, requireDefined(library.sets[0]), FIXED_TIMESTAMP);
-
-    expect(exported.pins.map((pin) => pin.pinString)).toEqual([DEATH_BADGE, CAST_FILTER]);
-    expect(exported.sets.map((set) => set.name)).toEqual(['Raid']);
+    expect(exportEntry(entry, FIXED_TIMESTAMP).entries).toEqual([entry]);
   });
 });
 
 describe('import', () => {
-  it('round-trips an export into an empty library', () => {
+  it('round-trips an export into an empty library, including views and tags', () => {
     const exported = JSON.stringify(exportLibrary(sharedLibrary(), FIXED_TIMESTAMP));
 
-    const { library, summary } = mergeImport(
-      createEmptyLibrary(),
-      parseLibraryExport(exported),
+    const { library, summary } = mergeImport(createEmptyLibrary(), parseLibraryExport(exported), createSequentialFactory());
+
+    expect(summary).toEqual({ addedEntries: 2, skippedEntries: 0 });
+    expect(library.entries[1]).toMatchObject({
+      name: 'Raid',
+      pins: [DEATH_BADGE, CAST_FILTER],
+      tags: ['raid'],
+      viewParams: { tab: 'debuffs', hostility: '1' },
+    });
+  });
+
+  it('skips entries with the same name and the same pins, in any order', () => {
+    const library = sharedLibrary();
+    const [moonfire, raid] = library.entries;
+    const exported = {
+      ...exportLibrary(library, FIXED_TIMESTAMP),
+      entries: [
+        { ...requireDefined(raid), pins: [CAST_FILTER, DEATH_BADGE] },
+        { ...requireDefined(moonfire), name: 'Moonfire (other guild)' },
+      ],
+    };
+
+    const { library: merged, summary } = mergeImport(
+      library,
+      parseLibraryExport(JSON.stringify(exported)),
       createSequentialFactory(),
     );
 
-    expect(summary).toEqual({ addedPins: 3, reusedPins: 0, addedSets: 1, skippedSets: 0 });
-    expect(library.sets[0]?.pinIds.map((id) => library.pins.find((pin) => pin.id === id)?.pinString)).toEqual([
-      DEATH_BADGE,
-      CAST_FILTER,
-    ]);
+    expect(summary).toEqual({ addedEntries: 1, skippedEntries: 1 });
+    expect(merged.entries.map((entry) => entry.name)).toEqual(['Moonfire', 'Raid', 'Moonfire (other guild)']);
   });
 
-  it('round-trips saved views of pins and sets', () => {
-    const factory = createSequentialFactory();
-    const library = addPinsAsSet(
-      addPin(createEmptyLibrary(), { ...pinDraft('Moonfire', MOONFIRE_DECORATOR), viewParams: { type: 'casts' } }, factory),
-      [DEATH_BADGE],
-      { name: 'Raid', description: '', tags: [], viewParams: { type: 'damage-taken', ability: '1304424' } },
-      factory,
-    );
-    const exported = JSON.stringify(exportLibrary(library, FIXED_TIMESTAMP));
-
-    const { library: imported } = mergeImport(createEmptyLibrary(), parseLibraryExport(exported), factory);
-
-    expect(imported.pins.map((pin) => pin.viewParams)).toEqual([{ type: 'casts' }, undefined]);
-    expect(imported.sets[0]?.viewParams).toEqual({ type: 'damage-taken', ability: '1304424' });
-  });
-
-  it('imports export files from schema version 1 without saved views', () => {
-    const imported = parseLibraryExport(VERSION_1_EXPORT);
-
-    const { library, summary } = mergeImport(createEmptyLibrary(), imported, createSequentialFactory());
-
-    expect(imported.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(summary).toEqual({ addedPins: 1, reusedPins: 0, addedSets: 1, skippedSets: 0 });
-    expect(library.pins[0]).toMatchObject({ name: 'Deaths', pinString: DEATH_BADGE, tags: ['raid'] });
-    expect(library.pins[0]).not.toHaveProperty('viewParams');
-    expect(library.sets[0]).not.toHaveProperty('viewParams');
-    expect(library.sets[0]?.pinIds).toEqual([library.pins[0]?.id]);
-  });
-
-  it('drops report-specific params from imported views, so a view cannot pin a fight or boss', () => {
-    const exported = exportLibrary(createEmptyLibrary(), FIXED_TIMESTAMP);
+  it('drops report-specific params and missing values from imported views', () => {
     const fileContent = JSON.stringify({
-      ...exported,
-      pins: [
-        {
-          id: 'pin',
+      ...exportLibrary(createEmptyLibrary(), FIXED_TIMESTAMP),
+      entries: [
+        storedRecord({
+          id: 'entry',
           name: 'Deaths',
-          description: '',
-          tags: [],
-          pinString: DEATH_BADGE,
-          viewParams: { type: 'deaths', fight: '3', boss: '3513', source: '12', view: '' },
-          createdAt: FIXED_TIMESTAMP,
-          updatedAt: FIXED_TIMESTAMP,
-        },
+          pins: [DEATH_BADGE],
+          viewParams: { tab: 'deaths', fight: '3', boss: '3513', source: '12', view: '', ability: 'undefined' },
+        }),
       ],
     });
 
-    expect(parseLibraryExport(fileContent).pins[0]?.viewParams).toEqual({ type: 'deaths' });
+    expect(parseLibraryExport(fileContent).entries[0]?.viewParams).toStrictEqual({ tab: 'deaths' });
   });
 
-  it('reuses identical pins and skips sets that already exist', () => {
-    const library = sharedLibrary();
-    const exported = parseLibraryExport(JSON.stringify(exportLibrary(library, FIXED_TIMESTAMP)));
+  it('imports version 1 export files as entries', () => {
+    const fileContent = JSON.stringify({
+      format: EXPORT_FORMAT,
+      schemaVersion: 1,
+      exportedAt: FIXED_TIMESTAMP,
+      pins: [storedRecord({ id: 'old-pin', name: 'Deaths', tags: ['raid'], pinString: DEATH_BADGE })],
+      sets: [storedRecord({ id: 'old-set', name: 'Raid', pinIds: ['old-pin'] })],
+    });
 
-    const { library: merged, summary } = mergeImport(library, exported, createSequentialFactory());
+    const imported = parseLibraryExport(fileContent);
 
-    expect(summary).toEqual({ addedPins: 0, reusedPins: 3, addedSets: 0, skippedSets: 1 });
-    expect(merged.pins).toHaveLength(3);
-    expect(merged.sets).toHaveLength(1);
+    expect(imported.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(imported.entries.map((entry) => [entry.name, entry.pins, entry.tags])).toEqual([
+      ['Deaths', [DEATH_BADGE], ['raid']],
+      ['Raid', [DEATH_BADGE], []],
+    ]);
+  });
+
+  it('migrates views in version 2 export files from raw type values to tabs', () => {
+    const fileContent = JSON.stringify({
+      format: EXPORT_FORMAT,
+      schemaVersion: 2,
+      exportedAt: FIXED_TIMESTAMP,
+      pins: [
+        storedRecord({ id: 'buffs', name: 'Buffs', pinString: DEATH_BADGE, viewParams: { type: 'auras' } }),
+        storedRecord({ id: 'debuffs', name: 'Debuffs', pinString: CAST_FILTER, viewParams: { type: 'debuffs', ability: '1282419' } }),
+      ],
+      sets: [],
+    });
+
+    expect(parseLibraryExport(fileContent).entries.map((entry) => entry.viewParams)).toStrictEqual([
+      { tab: 'buffs' },
+      { tab: 'debuffs', ability: '1282419' },
+    ]);
+  });
+
+  it('turns a version 4 set into one entry and keeps its set-only pins inside it', () => {
+    const fileContent = JSON.stringify({
+      format: EXPORT_FORMAT,
+      schemaVersion: 4,
+      exportedAt: FIXED_TIMESTAMP,
+      pins: [
+        storedRecord({ id: 'named', name: 'DMG AMP onward', pinString: DEATH_BADGE, scope: 'library' }),
+        storedRecord({ id: 'generated', name: 'Filter: type = "cast"', pinString: CAST_FILTER, scope: 'sets' }),
+      ],
+      sets: [storedRecord({ id: 'set', name: 'Coiled Altar', pinIds: ['named', 'generated'] })],
+    });
+
+    const imported = parseLibraryExport(fileContent);
+
+    expect(imported.entries.map((entry) => [entry.name, entry.pins])).toEqual([
+      ['DMG AMP onward', [DEATH_BADGE]],
+      ['Coiled Altar', [DEATH_BADGE, CAST_FILTER]],
+    ]);
   });
 
   it.each([
@@ -148,12 +157,12 @@ describe('import', () => {
     ['another JSON file', '{"hello":"world"}', 'not an Opposite Pin Library export'],
     [
       'a file from a newer version',
-      JSON.stringify({ format: EXPORT_FORMAT, schemaVersion: CURRENT_SCHEMA_VERSION + 1, pins: [], sets: [] }),
+      JSON.stringify({ format: EXPORT_FORMAT, schemaVersion: CURRENT_SCHEMA_VERSION + 1, entries: [] }),
       `schema version ${CURRENT_SCHEMA_VERSION + 1}`,
     ],
     [
-      'a file with a broken pin',
-      JSON.stringify({ ...exportLibrary(createEmptyLibrary(), FIXED_TIMESTAMP), pins: [{ id: 'x' }] }),
+      'a file with a broken entry',
+      JSON.stringify({ ...exportLibrary(createEmptyLibrary(), FIXED_TIMESTAMP), entries: [{ id: 'x' }] }),
       'The export file is invalid',
     ],
   ])('rejects %s with a readable message', (_description, fileContent, expectedMessage) => {

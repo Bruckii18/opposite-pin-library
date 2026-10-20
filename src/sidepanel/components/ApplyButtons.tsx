@@ -17,7 +17,7 @@ export function ApplyButtons({ target }: ApplyButtonsProps) {
     <>
       <button
         type="button"
-        className="button button--primary button--small"
+        className="button button--accent button--small"
         disabled={isDisabled}
         title={hasActivePins ? REPLACE_TITLE : APPLY_TITLE}
         onClick={() => void applyTarget(target, ApplyMode.Replace)}
@@ -27,12 +27,13 @@ export function ApplyButtons({ target }: ApplyButtonsProps) {
       {hasActivePins && (
         <button
           type="button"
-          className="button button--small"
+          className="button button--ghost button--small"
           disabled={isDisabled}
+          aria-label="Add to current"
           title={ADD_TO_CURRENT_TITLE}
           onClick={() => void applyTarget(target, ApplyMode.Add)}
         >
-          Add to current
+          Add
         </button>
       )}
     </>

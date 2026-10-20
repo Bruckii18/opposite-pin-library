@@ -1,10 +1,8 @@
 import { describePin, PinKind, type PinString } from '../../wcl/pinString';
-import type { ViewParams } from '../../wcl/viewParams';
-import { ViewLabel } from './ViewLabel';
 
 type PinSummaryProps = {
   readonly pinString: PinString;
-  readonly viewParams?: ViewParams | undefined;
+  readonly label?: string | undefined;
 };
 
 const KIND_CLASS_NAMES: Record<PinKind, string> = {
@@ -16,7 +14,7 @@ const KIND_CLASS_NAMES: Record<PinKind, string> = {
   [PinKind.Unknown]: 'kind-badge--unknown',
 };
 
-export function PinSummary({ pinString, viewParams }: PinSummaryProps) {
+export function PinSummary({ pinString, label }: PinSummaryProps) {
   const { kind, color, summary } = describePin(pinString);
   return (
     <div className="pin-summary">
@@ -24,10 +22,15 @@ export function PinSummary({ pinString, viewParams }: PinSummaryProps) {
       {color !== null && (
         <span className="color-swatch" style={{ backgroundColor: color }} aria-hidden="true" />
       )}
-      <code className="pin-summary-text" title={pinString}>
-        {summary}
-      </code>
-      {viewParams !== undefined && <ViewLabel viewParams={viewParams} />}
+      {label === undefined ? (
+        <code className="pin-summary-text" title={pinString}>
+          {summary}
+        </code>
+      ) : (
+        <span className="pin-summary-label" title={summary}>
+          {label}
+        </span>
+      )}
     </div>
   );
 }

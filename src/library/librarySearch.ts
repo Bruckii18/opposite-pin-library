@@ -1,5 +1,5 @@
 import { describePin } from '../wcl/pinString';
-import type { PinSet, SavedPin } from './librarySchema';
+import type { LibraryEntry } from './librarySchema';
 import { tagKey, uniqueTags } from './tags';
 
 export interface LibraryFilter {
@@ -15,20 +15,29 @@ const WHITESPACE = /\s+/;
 
 export const EMPTY_FILTER: LibraryFilter = { text: '', tags: [] };
 
-export function filterPins(pins: readonly SavedPin[], filter: LibraryFilter): SavedPin[] {
-  return pins.filter((pin) =>
-    matchesFilter(pin, filter, [pin.name, pin.description, describePin(pin.pinString).summary]),
+export function filterEntries(entries: readonly LibraryEntry[], filter: LibraryFilter): LibraryEntry[] {
+  return entries.filter((entry) =>
+    matchesFilter(entry, filter, [
+      entry.name,
+      entry.description,
+      ...entry.pins.map((pin) => describePin(pin).summary),
+    ]),
   );
-}
-
-export function filterSets(sets: readonly PinSet[], filter: LibraryFilter): PinSet[] {
-  return sets.filter((set) => matchesFilter(set, filter, [set.name, set.description]));
 }
 
 export function collectTags(entries: readonly Taggable[]): string[] {
   return uniqueTags(entries.flatMap((entry) => entry.tags)).sort((first, second) =>
     first.localeCompare(second),
   );
+}
+
+export function collectTagsByUsage(entries: readonly Taggable[]): string[] {
+  const usageByTagKey = new Map<string, number>();
+  for (const tag of entries.flatMap((entry) => entry.tags)) {
+    usageByTagKey.set(tagKey(tag), (usageByTagKey.get(tagKey(tag)) ?? 0) + 1);
+  }
+  const usageOf = (tag: string): number => usageByTagKey.get(tagKey(tag)) ?? 0;
+  return collectTags(entries).sort((first, second) => usageOf(second) - usageOf(first));
 }
 
 export function toggleFilterTag(filter: LibraryFilter, tag: string): LibraryFilter {

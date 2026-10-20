@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { CAST_FILTER, DEATH_BADGE, MOONFIRE_DECORATOR } from '../test/pinFixtures';
 import type { PinString } from '../wcl/pinString';
-import type { ViewParams } from '../wcl/viewParams';
+import type { ViewParams, ViewQuery } from '../wcl/viewParams';
 import { ApplyMode, createApplyPlan, findAppendedPins, isUnchanged } from './applyPlan';
 
-const DAMAGE_TAKEN_EVENTS: ViewParams = { type: 'damage-taken', ability: '1304424', view: 'events' };
-const CASTS_TABLE: ViewParams = { type: 'casts' };
+const DAMAGE_TAKEN_EVENTS: ViewParams = { tab: 'damage-taken', ability: '1304424', view: 'events' };
+const DAMAGE_TAKEN_EVENTS_QUERY: ViewQuery = { type: 'damage-taken', ability: '1304424', view: 'events' };
+const CASTS_TABLE: ViewParams = { tab: 'casts' };
 
 function planPins(activePins: readonly PinString[], requestedPins: readonly PinString[], mode: ApplyMode) {
-  return createApplyPlan({ pins: activePins, view: {} }, { pins: requestedPins, mode, view: null });
+  return createApplyPlan({ pins: activePins, viewQuery: {} }, { pins: requestedPins, mode, view: null });
 }
 
 describe('createApplyPlan', () => {
@@ -48,7 +49,7 @@ describe('createApplyPlan', () => {
 describe('createApplyPlan with a saved view', () => {
   it('keeps the current view when the request has no saved view', () => {
     const plan = createApplyPlan(
-      { pins: [MOONFIRE_DECORATOR], view: DAMAGE_TAKEN_EVENTS },
+      { pins: [MOONFIRE_DECORATOR], viewQuery: DAMAGE_TAKEN_EVENTS_QUERY },
       { pins: [DEATH_BADGE], mode: ApplyMode.Add, view: null },
     );
 
@@ -61,7 +62,7 @@ describe('createApplyPlan with a saved view', () => {
 
   it('targets the saved view when it differs from the current one', () => {
     const plan = createApplyPlan(
-      { pins: [], view: DAMAGE_TAKEN_EVENTS },
+      { pins: [], viewQuery: DAMAGE_TAKEN_EVENTS_QUERY },
       { pins: [DEATH_BADGE], mode: ApplyMode.Add, view: CASTS_TABLE },
     );
 
@@ -70,7 +71,7 @@ describe('createApplyPlan with a saved view', () => {
 
   it('treats a saved default view as a change when the report shows another view', () => {
     const plan = createApplyPlan(
-      { pins: [], view: DAMAGE_TAKEN_EVENTS },
+      { pins: [], viewQuery: DAMAGE_TAKEN_EVENTS_QUERY },
       { pins: [DEATH_BADGE], mode: ApplyMode.Add, view: {} },
     );
 
@@ -79,7 +80,7 @@ describe('createApplyPlan with a saved view', () => {
 
   it('applies a view change even when the pins are already active', () => {
     const plan = createApplyPlan(
-      { pins: [DEATH_BADGE], view: CASTS_TABLE },
+      { pins: [DEATH_BADGE], viewQuery: { type: 'casts' } },
       { pins: [DEATH_BADGE], mode: ApplyMode.Add, view: DAMAGE_TAKEN_EVENTS },
     );
 
@@ -89,11 +90,29 @@ describe('createApplyPlan with a saved view', () => {
 
   it('leaves the view alone when the report already shows the saved view', () => {
     const plan = createApplyPlan(
-      { pins: [DEATH_BADGE], view: { ...DAMAGE_TAKEN_EVENTS } },
+      { pins: [DEATH_BADGE], viewQuery: DAMAGE_TAKEN_EVENTS_QUERY },
       { pins: [DEATH_BADGE], mode: ApplyMode.Add, view: DAMAGE_TAKEN_EVENTS },
     );
 
     expect(plan.targetView).toBeNull();
     expect(isUnchanged(plan)).toBe(true);
+  });
+
+  it('tells Buffs and Debuffs apart although both are type=auras', () => {
+    const plan = createApplyPlan(
+      { pins: [DEATH_BADGE], viewQuery: { type: 'auras', spells: 'debuffs' } },
+      { pins: [DEATH_BADGE], mode: ApplyMode.Add, view: { tab: 'buffs' } },
+    );
+
+    expect(plan.targetView).toEqual({ tab: 'buffs' });
+  });
+
+  it('repairs a legacy type=debuffs URL instead of treating it as the Debuffs tab', () => {
+    const plan = createApplyPlan(
+      { pins: [DEATH_BADGE], viewQuery: { type: 'debuffs' } },
+      { pins: [DEATH_BADGE], mode: ApplyMode.Add, view: { tab: 'debuffs' } },
+    );
+
+    expect(plan.targetView).toEqual({ tab: 'debuffs' });
   });
 });

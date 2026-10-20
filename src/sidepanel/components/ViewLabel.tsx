@@ -11,7 +11,7 @@ export function ViewLabel({ viewParams }: ViewLabelProps) {
       className="view-badge"
       title={`Applying also switches the report to ${describeViewParams(viewParams)}.`}
     >
-      View: {summarizeViewParams(viewParams)}
+      <span className="view-badge-label">View</span> {summarizeViewParams(viewParams)}
     </span>
   );
 }

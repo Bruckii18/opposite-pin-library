@@ -30,7 +30,7 @@ export function LibraryFilterBar({
           value={filter.text}
           onChange={(event) => onFilterChange({ ...filter, text: event.target.value })}
         />
-        <button type="button" className="button button--primary" onClick={onCreate}>
+        <button type="button" className="button" onClick={onCreate}>
           + {createLabel}
         </button>
       </div>
