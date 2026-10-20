@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CAST_FILTER, DEATH_BADGE, MOONFIRE_DECORATOR } from '../test/pinFixtures';
 import type { PinString } from '../wcl/pinString';
-import type { ViewParams } from '../wcl/viewParams';
+import { toQueryParams, type ViewParams } from '../wcl/viewParams';
 import { ApplyMode, type PinApplyPlan } from './applyPlan';
 import { ApplyPinsError, ApplyPinsOutcome, createApplyPins } from './applyPins';
 import {
@@ -13,7 +13,7 @@ import {
   type StrategyOutcome,
 } from './applyStrategy';
 
-const DAMAGE_TAKEN_EVENTS: ViewParams = { type: 'damage-taken', ability: '1304424', view: 'events' };
+const DAMAGE_TAKEN_EVENTS: ViewParams = { tab: 'damage-taken', ability: '1304424', view: 'events' };
 
 function fakeStrategy(
   name: ApplyStrategy['name'],
@@ -27,7 +27,10 @@ function applyPinsWith(
   strategies: readonly ApplyStrategy[],
   activeView: ViewParams = {},
 ) {
-  return createApplyPins({ readReportState: () => ({ pins: activePins, view: activeView }), strategies });
+  return createApplyPins({
+    readReportState: () => ({ pins: activePins, viewQuery: toQueryParams(activeView) }),
+    strategies,
+  });
 }
 
 describe('createApplyPins', () => {

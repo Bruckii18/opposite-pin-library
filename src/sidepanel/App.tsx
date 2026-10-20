@@ -1,6 +1,6 @@
 import { LibraryStatus } from '../library/libraryStore';
 import { ActiveReportSection } from './components/ActiveReportSection';
-import { LibraryTabs } from './components/LibraryTabs';
+import { LibrarySection } from './components/LibrarySection';
 import { PanelHeader } from './components/PanelHeader';
 import { StatusBar } from './components/StatusBar';
 import { TransferBar } from './components/TransferBar';
@@ -24,8 +24,8 @@ export function App() {
         )}
         {libraryState.status === LibraryStatus.Ready && (
           <>
-            <ActiveReportSection libraryPins={libraryState.library.pins} />
-            <LibraryTabs library={libraryState.library} />
+            <ActiveReportSection libraryEntries={libraryState.library.entries} />
+            <LibrarySection library={libraryState.library} />
           </>
         )}
       </main>

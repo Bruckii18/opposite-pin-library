@@ -1,3 +1,4 @@
+import { isRecord } from '../shared/records';
 import { isViewParams, type ViewParams } from './viewParams';
 
 export const ROUTE_PINS_REQUEST_EVENT = 'opposite-pin-library:route-pins-request';
@@ -63,10 +64,6 @@ function parseBridgeJson(eventDetail: unknown): unknown {
     // Any page script can dispatch these events; malformed payloads are not ours and are ignored.
     return null;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function isRoutePinsStatus(value: unknown): value is RoutePinsStatus {

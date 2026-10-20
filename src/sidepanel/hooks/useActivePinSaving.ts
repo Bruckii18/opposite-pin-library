@@ -1,45 +1,44 @@
 import { useState } from 'react';
-import type { PinDraft, PinSetDetails } from '../../library/libraryOperations';
+import type { EntryDraft } from '../../library/libraryOperations';
 import type { PinString } from '../../wcl/pinString';
 import { useStatus } from '../status/StatusContext';
 import { useLibraryActions } from './useLibrary';
 
 export interface ActivePinSaving {
   readonly pinBeingSaved: PinString | null;
-  readonly isSavingAsSet: boolean;
+  readonly isSavingAll: boolean;
   startSavingPin(pin: PinString): void;
   cancelSavingPin(): void;
-  savePin(draft: PinDraft): Promise<void>;
-  startSavingAsSet(): void;
-  cancelSavingAsSet(): void;
-  saveAsSet(details: PinSetDetails): Promise<void>;
+  savePin(draft: EntryDraft): Promise<void>;
+  startSavingAll(): void;
+  cancelSavingAll(): void;
+  saveAll(draft: EntryDraft): Promise<void>;
 }
 
-export function useActivePinSaving(activePins: readonly PinString[]): ActivePinSaving {
-  const { savePin, savePinsAsSet } = useLibraryActions();
+export function useActivePinSaving(): ActivePinSaving {
+  const { saveEntry } = useLibraryActions();
   const { trackTask } = useStatus();
   const [pinBeingSaved, setPinBeingSaved] = useState<PinString | null>(null);
-  const [isSavingAsSet, setIsSavingAsSet] = useState(false);
+  const [isSavingAll, setIsSavingAll] = useState(false);
+
+  const save = (draft: EntryDraft): Promise<boolean> =>
+    trackTask(() => saveEntry(draft), () => `Saved "${draft.name}".`);
 
   return {
     pinBeingSaved,
-    isSavingAsSet,
+    isSavingAll,
     startSavingPin: setPinBeingSaved,
     cancelSavingPin: () => setPinBeingSaved(null),
     savePin: async (draft) => {
-      if (await trackTask(() => savePin(draft), () => `Saved "${draft.name}".`)) {
+      if (await save(draft)) {
         setPinBeingSaved(null);
       }
     },
-    startSavingAsSet: () => setIsSavingAsSet(true),
-    cancelSavingAsSet: () => setIsSavingAsSet(false),
-    saveAsSet: async (details) => {
-      const isSaved = await trackTask(
-        () => savePinsAsSet(activePins, details),
-        () => `Saved the set "${details.name}".`,
-      );
-      if (isSaved) {
-        setIsSavingAsSet(false);
+    startSavingAll: () => setIsSavingAll(true),
+    cancelSavingAll: () => setIsSavingAll(false),
+    saveAll: async (draft) => {
+      if (await save(draft)) {
+        setIsSavingAll(false);
       }
     },
   };

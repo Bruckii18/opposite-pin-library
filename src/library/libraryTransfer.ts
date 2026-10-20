@@ -2,14 +2,10 @@ import { z } from 'zod';
 import type { EntityFactory } from './entityFactory';
 import {
   CURRENT_SCHEMA_VERSION,
-  pinSetSchema,
-  savedPinSchema,
+  libraryEntrySchema,
+  type LibraryEntry,
   type PinLibrary,
-  type PinSet,
-  type SavedPin,
-  type SavedPinId,
 } from './librarySchema';
-import { findPinByPinString, resolveSetPins } from './libraryOperations';
 import { migrateToCurrentVersion, UnreadableLibraryError } from './storedLibrary';
 
 export const EXPORT_FORMAT = 'opposite-pin-library';
@@ -18,17 +14,14 @@ const libraryExportSchema = z.object({
   format: z.literal(EXPORT_FORMAT),
   schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),
   exportedAt: z.iso.datetime(),
-  pins: z.array(savedPinSchema),
-  sets: z.array(pinSetSchema),
+  entries: z.array(libraryEntrySchema),
 });
 
 export type LibraryExport = z.infer<typeof libraryExportSchema>;
 
 export interface ImportSummary {
-  readonly addedPins: number;
-  readonly reusedPins: number;
-  readonly addedSets: number;
-  readonly skippedSets: number;
+  readonly addedEntries: number;
+  readonly skippedEntries: number;
 }
 
 export interface ImportResult {
@@ -43,23 +36,12 @@ export class ImportFileError extends Error {
   }
 }
 
-interface PinMergeResult {
-  readonly pins: readonly SavedPin[];
-  readonly importedToLibraryPinIds: ReadonlyMap<SavedPinId, SavedPinId>;
-  readonly addedPins: number;
-}
-
-interface SetMergeResult {
-  readonly sets: readonly PinSet[];
-  readonly addedSets: number;
-}
-
 export function exportLibrary(library: PinLibrary, exportedAt: string): LibraryExport {
-  return createExport(library.pins, library.sets, exportedAt);
+  return createExport(library.entries, exportedAt);
 }
 
-export function exportSet(library: PinLibrary, set: PinSet, exportedAt: string): LibraryExport {
-  return createExport(resolveSetPins(library, set), [set], exportedAt);
+export function exportEntry(entry: LibraryEntry, exportedAt: string): LibraryExport {
+  return createExport([entry], exportedAt);
 }
 
 export function parseLibraryExport(fileContent: string): LibraryExport {
@@ -81,31 +63,29 @@ export function mergeImport(
   imported: LibraryExport,
   factory: EntityFactory,
 ): ImportResult {
-  const pinMerge = mergeImportedPins(library, imported.pins, factory);
-  const setMerge = mergeImportedSets(library.sets, imported.sets, pinMerge.importedToLibraryPinIds, factory);
+  const entries = [...library.entries];
+  for (const importedEntry of imported.entries) {
+    if (!entries.some((entry) => isSameEntry(entry, importedEntry))) {
+      entries.push({ ...importedEntry, id: factory.newEntryId() });
+    }
+  }
+  const addedEntries = entries.length - library.entries.length;
   return {
-    library: { ...library, pins: [...pinMerge.pins], sets: [...setMerge.sets] },
-    summary: {
-      addedPins: pinMerge.addedPins,
-      reusedPins: imported.pins.length - pinMerge.addedPins,
-      addedSets: setMerge.addedSets,
-      skippedSets: imported.sets.length - setMerge.addedSets,
-    },
+    library: { ...library, entries },
+    summary: { addedEntries, skippedEntries: imported.entries.length - addedEntries },
   };
 }
 
-function createExport(
-  pins: readonly SavedPin[],
-  sets: readonly PinSet[],
-  exportedAt: string,
-): LibraryExport {
-  return {
-    format: EXPORT_FORMAT,
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-    exportedAt,
-    pins: [...pins],
-    sets: [...sets],
-  };
+function createExport(entries: readonly LibraryEntry[], exportedAt: string): LibraryExport {
+  return { format: EXPORT_FORMAT, schemaVersion: CURRENT_SCHEMA_VERSION, exportedAt, entries: [...entries] };
+}
+
+function isSameEntry(first: LibraryEntry, second: LibraryEntry): boolean {
+  return (
+    first.name === second.name &&
+    first.pins.length === second.pins.length &&
+    first.pins.every((pin) => second.pins.includes(pin))
+  );
 }
 
 function migrateExport(json: unknown): unknown {
@@ -125,47 +105,4 @@ function parseJson(fileContent: string): unknown {
   } catch (error) {
     throw new ImportFileError('The file is not valid JSON.', { cause: error });
   }
-}
-
-function mergeImportedPins(
-  library: PinLibrary,
-  importedPins: readonly SavedPin[],
-  factory: EntityFactory,
-): PinMergeResult {
-  const pins = [...library.pins];
-  const importedToLibraryPinIds = new Map<SavedPinId, SavedPinId>();
-  for (const importedPin of importedPins) {
-    const existingPin = findPinByPinString(pins, importedPin.pinString);
-    const libraryPin = existingPin ?? { ...importedPin, id: factory.newPinId() };
-    if (existingPin === undefined) {
-      pins.push(libraryPin);
-    }
-    importedToLibraryPinIds.set(importedPin.id, libraryPin.id);
-  }
-  return { pins, importedToLibraryPinIds, addedPins: pins.length - library.pins.length };
-}
-
-function mergeImportedSets(
-  existingSets: readonly PinSet[],
-  importedSets: readonly PinSet[],
-  importedToLibraryPinIds: ReadonlyMap<SavedPinId, SavedPinId>,
-  factory: EntityFactory,
-): SetMergeResult {
-  const sets = [...existingSets];
-  for (const importedSet of importedSets) {
-    const pinIds = importedSet.pinIds
-      .map((id) => importedToLibraryPinIds.get(id))
-      .filter((id) => id !== undefined);
-    const isAlreadySaved = sets.some(
-      (set) => set.name === importedSet.name && haveSamePinIds(set.pinIds, pinIds),
-    );
-    if (!isAlreadySaved) {
-      sets.push({ ...importedSet, id: factory.newSetId(), pinIds });
-    }
-  }
-  return { sets, addedSets: sets.length - existingSets.length };
-}
-
-function haveSamePinIds(first: readonly SavedPinId[], second: readonly SavedPinId[]): boolean {
-  return first.length === second.length && first.every((id, index) => id === second[index]);
 }

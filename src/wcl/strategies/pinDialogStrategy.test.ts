@@ -17,7 +17,7 @@ const pinDialogStrategy = createPinDialogStrategy({
 
 function planFor(activePins: readonly PinString[], request: Partial<PinApplyRequest>) {
   return createApplyPlan(
-    { pins: activePins, view: {} },
+    { pins: activePins, viewQuery: {} },
     { pins: [], mode: ApplyMode.Add, view: null, ...request },
   );
 }
@@ -61,7 +61,7 @@ describe('pinDialogStrategy', () => {
 
   it('refuses plans that change the report view, so the reload applies pins and view together', async () => {
     const outcome = await pinDialogStrategy.apply(
-      planFor(page.readActivePins(), { pins: [DEATH_BADGE], view: { type: 'damage-taken' } }),
+      planFor(page.readActivePins(), { pins: [DEATH_BADGE], view: { tab: 'damage-taken' } }),
     );
 
     expect(outcome).toEqual({

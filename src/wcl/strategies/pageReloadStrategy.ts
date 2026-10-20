@@ -1,6 +1,6 @@
 import type { PinApplyPlan } from '../../apply/applyPlan';
 import { ApplyStrategyName, RELOADING, type ApplyStrategy } from '../../apply/applyStrategy';
-import { withPins, withViewParams } from '../reportUrl';
+import { toPinsQueryValue, withQueryChange } from '../reportUrl';
 
 export interface PageReloadStrategyDependencies {
   readonly readCurrentUrl: () => string;
@@ -21,6 +21,8 @@ export function createPageReloadStrategy({
 }
 
 function toPlannedUrl(currentUrl: URL, plan: PinApplyPlan): URL {
-  const urlWithPins = withPins(currentUrl, plan.targetPins);
-  return plan.targetView === null ? urlWithPins : withViewParams(urlWithPins, plan.targetView);
+  return withQueryChange(currentUrl, {
+    pinsQueryValue: toPinsQueryValue(plan.targetPins),
+    viewParams: plan.targetView,
+  });
 }

@@ -1,10 +1,20 @@
 import { useId } from 'react';
-import { VIEW_QUERY_PARAMS, type ViewQueryParam } from '../../wcl/wclContract';
-import { VIEW_PARAM_FIELDS, type ViewFormValues } from '../forms/viewFormModel';
+import {
+  LAYOUT_OPTIONS,
+  layoutFromOption,
+  NO_PARAM_OPTION_VALUE,
+  TAB_OPTIONS,
+  tabFromOption,
+  ViewFieldLabel,
+  type ViewFormValues,
+} from '../forms/viewFormModel';
 import { FormField } from './FormField';
+import { HostilityToggle } from './HostilityToggle';
+import { OptionSelect } from './OptionSelect';
 
 const VIEW_HINT =
-  'Applying sets these next to the pins and keeps fight, boss and the other report settings. Empty fields are removed from the URL.';
+  'Fight, boss, source and the other report settings stay as they are. Default and Tables leave the param out of the URL.';
+const ABILITY_PLACEHOLDER = 'All abilities';
 
 type ViewParamsFieldsProps = {
   readonly toggleLabel: string;
@@ -16,8 +26,7 @@ type ViewParamsFieldsProps = {
 export function ViewParamsFields({ toggleLabel, values, error, onChange }: ViewParamsFieldsProps) {
   const fieldIdPrefix = useId();
 
-  const updateParam = (param: ViewQueryParam, value: string): void =>
-    onChange({ ...values, params: { ...values.params, [param]: value } });
+  const update = (changes: Partial<ViewFormValues>): void => onChange({ ...values, ...changes });
 
   return (
     <fieldset className="view-fields">
@@ -26,30 +35,47 @@ export function ViewParamsFields({ toggleLabel, values, error, onChange }: ViewP
           id={`${fieldIdPrefix}-enabled`}
           type="checkbox"
           checked={values.isEnabled}
-          onChange={(event) => onChange({ ...values, isEnabled: event.target.checked })}
+          onChange={(event) => update({ isEnabled: event.target.checked })}
         />
         <span>{toggleLabel}</span>
       </label>
       {values.isEnabled && (
         <>
-          <p className="field-hint">{VIEW_HINT}</p>
-          {VIEW_QUERY_PARAMS.map((param) => (
-            <FormField
-              key={param}
-              label={VIEW_PARAM_FIELDS[param].label}
-              htmlFor={`${fieldIdPrefix}-${param}`}
-              hint={VIEW_PARAM_FIELDS[param].hint}
-            >
-              <input
-                id={`${fieldIdPrefix}-${param}`}
-                className="input input--mono"
-                value={values.params[param] ?? ''}
-                inputMode={VIEW_PARAM_FIELDS[param].isNumeric ? 'numeric' : 'text'}
-                spellCheck={false}
-                onChange={(event) => updateParam(param, event.target.value)}
+          <div className="view-grid">
+            <FormField label={ViewFieldLabel.Tab} htmlFor={`${fieldIdPrefix}-tab`}>
+              <OptionSelect
+                id={`${fieldIdPrefix}-tab`}
+                options={TAB_OPTIONS}
+                value={values.tab ?? NO_PARAM_OPTION_VALUE}
+                onChange={(value) => update({ tab: tabFromOption(value) })}
               />
             </FormField>
-          ))}
+            <FormField label={ViewFieldLabel.Layout} htmlFor={`${fieldIdPrefix}-layout`}>
+              <OptionSelect
+                id={`${fieldIdPrefix}-layout`}
+                options={LAYOUT_OPTIONS}
+                value={values.layout ?? NO_PARAM_OPTION_VALUE}
+                onChange={(value) => update({ layout: layoutFromOption(value) })}
+              />
+            </FormField>
+            <HostilityToggle
+              name={`${fieldIdPrefix}-hostility`}
+              value={values.hostility}
+              onChange={(hostility) => update({ hostility })}
+            />
+            <FormField label={ViewFieldLabel.Ability} htmlFor={`${fieldIdPrefix}-ability`}>
+              <input
+                id={`${fieldIdPrefix}-ability`}
+                className="input input--mono"
+                value={values.ability}
+                placeholder={ABILITY_PLACEHOLDER}
+                inputMode="numeric"
+                spellCheck={false}
+                onChange={(event) => update({ ability: event.target.value })}
+              />
+            </FormField>
+          </div>
+          <p className="field-hint">{VIEW_HINT}</p>
           {error !== undefined && (
             <p className="field-error" role="alert">
               {error}

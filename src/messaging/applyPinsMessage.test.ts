@@ -7,7 +7,7 @@ describe('isApplyPinsRequest', () => {
   it('accepts requests created by the side panel', () => {
     expect(isApplyPinsRequest(createApplyPinsRequest([DEATH_BADGE], ApplyMode.Replace, null))).toBe(true);
     expect(
-      isApplyPinsRequest(createApplyPinsRequest([DEATH_BADGE], ApplyMode.Add, { type: 'casts', ability: '1' })),
+      isApplyPinsRequest(createApplyPinsRequest([DEATH_BADGE], ApplyMode.Add, { tab: 'casts', ability: '1' })),
     ).toBe(true);
   });
 
@@ -20,6 +20,9 @@ describe('isApplyPinsRequest', () => {
     { type: APPLY_PINS_MESSAGE_TYPE, pinStrings: [], mode: ApplyMode.Add },
     { type: APPLY_PINS_MESSAGE_TYPE, pinStrings: [], mode: ApplyMode.Add, viewParams: { fight: '3' } },
     { type: APPLY_PINS_MESSAGE_TYPE, pinStrings: [], mode: ApplyMode.Add, viewParams: { ability: 1304424 } },
+    { type: APPLY_PINS_MESSAGE_TYPE, pinStrings: [], mode: ApplyMode.Add, viewParams: { type: 'casts' } },
+    { type: APPLY_PINS_MESSAGE_TYPE, pinStrings: [], mode: ApplyMode.Add, viewParams: { tab: 'auras' } },
+    { type: APPLY_PINS_MESSAGE_TYPE, pinStrings: [], mode: ApplyMode.Add, viewParams: { ability: 'null' } },
   ])('rejects %j', (message) => {
     expect(isApplyPinsRequest(message)).toBe(false);
   });

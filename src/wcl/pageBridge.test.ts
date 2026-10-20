@@ -12,6 +12,7 @@ const BRIDGE_TIMEOUT_MS = 50;
 const routePins = createPageRouterClient(window, BRIDGE_TIMEOUT_MS);
 const REPORT_PATH = '/reports/AbC123?fight=1';
 const REPORT_AND_VIEW_PARAMS = 'boss=3513&difficulty=5&wipes=1&source=12&type=casts&view=timeline';
+const MISSING_VALUES: ReadonlySet<unknown> = new Set([null, undefined, '', 'null', 'undefined']);
 
 describe('page bridge', () => {
   beforeEach(() => {
@@ -46,10 +47,10 @@ describe('page bridge', () => {
     history.replaceState(null, '', `${location.href}&${REPORT_AND_VIEW_PARAMS}`);
     installFakeQueryRouter();
 
-    await routePins(DEATH_BADGE, { type: 'damage-taken', ability: '1304424' });
+    await routePins(DEATH_BADGE, { tab: 'damage-taken', ability: '1304424' });
 
     const url = new URL(location.href);
-    expect(readViewParams(url)).toEqual({ type: 'damage-taken', ability: '1304424' });
+    expect(readViewParams(url)).toEqual({ tab: 'damage-taken', ability: '1304424' });
     expect(url.searchParams.get('pins')).toBe(DEATH_BADGE);
     expect(url.searchParams.get('fight')).toBe('1');
     expect(url.searchParams.get('boss')).toBe('3513');
@@ -64,7 +65,55 @@ describe('page bridge', () => {
 
     await routePins(DEATH_BADGE, null);
 
-    expect(readViewParams(new URL(location.href))).toEqual({ type: 'casts', view: 'timeline' });
+    expect(readViewParams(new URL(location.href))).toEqual({ tab: 'casts', view: 'timeline' });
+  });
+
+  it('keeps spells and hostility of the current view when the request has no saved view', async () => {
+    history.replaceState(null, '', `${location.href}&type=auras&spells=debuffs&hostility=1`);
+    installFakeQueryRouter();
+
+    await routePins(DEATH_BADGE, null);
+
+    const url = new URL(location.href);
+    expect(url.searchParams.get('spells')).toBe('debuffs');
+    expect(url.searchParams.get('hostility')).toBe('1');
+  });
+
+  it('routes a Debuffs view as type=auras with spells=debuffs', async () => {
+    installFakeQueryRouter();
+
+    await routePins(DEATH_BADGE, { tab: 'debuffs', ability: '1282419' });
+
+    const url = new URL(location.href);
+    expect(url.searchParams.get('type')).toBe('auras');
+    expect(url.searchParams.get('spells')).toBe('debuffs');
+    expect(readViewParams(url)).toEqual({ tab: 'debuffs', ability: '1282419' });
+  });
+
+  it('removes spells, hostility and ability when a Debuffs pin is followed by a Damage Taken pin', async () => {
+    installFakeQueryRouter();
+
+    await routePins(DEATH_BADGE, { tab: 'debuffs', hostility: '1', ability: '1282419' });
+    await routePins(MOONFIRE_DECORATOR, { tab: 'damage-taken' });
+
+    const url = new URL(location.href);
+    expect(url.searchParams.get('type')).toBe('damage-taken');
+    expect(url.searchParams.has('spells')).toBe(false);
+    expect(url.searchParams.has('hostility')).toBe(false);
+    expect(url.searchParams.has('ability')).toBe(false);
+    expect(url.searchParams.get('fight')).toBe('1');
+  });
+
+  it('never routes null, undefined or their literal strings', async () => {
+    history.replaceState(null, '', `${location.href}&target=null&start=undefined&ability=undefined&spells=`);
+    const router = installFakeQueryRouter();
+
+    await routePins(DEATH_BADGE, null);
+    await routePins(DEATH_BADGE, { tab: 'debuffs' });
+
+    const routedValues = router.routedQueries.flatMap((query) => Object.values(query));
+    expect(routedValues.filter((value) => MISSING_VALUES.has(value))).toEqual([]);
+    expect(new URL(location.href).searchParams.get('fight')).toBe('1');
   });
 
   it('reports a missing router', async () => {

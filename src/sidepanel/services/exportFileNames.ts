@@ -8,8 +8,8 @@ export function libraryExportFileName(exportedAt: string): string {
   return `${FILE_NAME_PREFIX}-library-${exportedAt.slice(0, ISO_DATE_LENGTH)}${JSON_EXTENSION}`;
 }
 
-export function setExportFileName(setName: string, exportedAt: string): string {
-  return `${FILE_NAME_PREFIX}-set-${slugify(setName)}-${exportedAt.slice(0, ISO_DATE_LENGTH)}${JSON_EXTENSION}`;
+export function entryExportFileName(entryName: string, exportedAt: string): string {
+  return `${FILE_NAME_PREFIX}-${slugify(entryName)}-${exportedAt.slice(0, ISO_DATE_LENGTH)}${JSON_EXTENSION}`;
 }
 
 function slugify(text: string): string {

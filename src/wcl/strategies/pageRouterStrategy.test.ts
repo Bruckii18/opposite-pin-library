@@ -7,10 +7,10 @@ import { joinPins } from '../pinString';
 import type { ViewParams } from '../viewParams';
 import { createPageRouterStrategy } from './pageRouterStrategy';
 
-const DAMAGE_TAKEN_EVENTS: ViewParams = { type: 'damage-taken', ability: '1304424', view: 'events' };
+const DAMAGE_TAKEN_EVENTS: ViewParams = { tab: 'damage-taken', ability: '1304424', view: 'events' };
 
 const plan = createApplyPlan(
-  { pins: [MOONFIRE_DECORATOR], view: {} },
+  { pins: [MOONFIRE_DECORATOR], viewQuery: {} },
   { pins: [DEATH_BADGE], mode: ApplyMode.Add, view: null },
 );
 
@@ -35,7 +35,7 @@ describe('pageRouterStrategy', () => {
     const routePins = routerAnswering(RoutePinsStatus.Routed);
     const strategy = createPageRouterStrategy({ routePins, waitForAppliedPlan: async () => true });
     const planWithView = createApplyPlan(
-      { pins: [], view: {} },
+      { pins: [], viewQuery: {} },
       { pins: [DEATH_BADGE], mode: ApplyMode.Add, view: DAMAGE_TAKEN_EVENTS },
     );
 

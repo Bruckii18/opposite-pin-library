@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { DEATH_BADGE, MOONFIRE_DECORATOR } from '../test/pinFixtures';
+import { joinPins } from './pinString';
 import {
   parseWclReportUrl,
   readActivePins,
   readViewParams,
+  readViewQuery,
   toPinsQueryValue,
-  withPins,
-  withViewParams,
+  withQueryChange,
 } from './reportUrl';
 import { VIEW_QUERY_PARAMS } from './wclContract';
 
@@ -49,18 +50,23 @@ describe('readActivePins', () => {
   });
 });
 
-describe('withPins', () => {
+describe('withQueryChange', () => {
   it('encodes pins the same way WCL does', () => {
     const reportUrl = new URL(URL_CAPTURED_FROM_WCL);
     reportUrl.searchParams.delete('pins');
 
-    expect(withPins(reportUrl, [MOONFIRE_DECORATOR, DEATH_BADGE]).href).toBe(URL_CAPTURED_FROM_WCL);
+    const updatedUrl = withQueryChange(reportUrl, {
+      pinsQueryValue: joinPins([MOONFIRE_DECORATOR, DEATH_BADGE]),
+      viewParams: null,
+    });
+
+    expect(updatedUrl.href).toBe(URL_CAPTURED_FROM_WCL);
   });
 
   it('closes the Add Pin dialog and keeps the other query parameters', () => {
     const reportUrl = new URL('https://www.warcraftlogs.com/reports/AbC123?fight=2&modal=pins');
 
-    const updatedUrl = withPins(reportUrl, [DEATH_BADGE]);
+    const updatedUrl = withQueryChange(reportUrl, { pinsQueryValue: DEATH_BADGE, viewParams: null });
 
     expect(updatedUrl.searchParams.get('modal')).toBeNull();
     expect(updatedUrl.searchParams.get('fight')).toBe('2');
@@ -68,9 +74,35 @@ describe('withPins', () => {
   });
 
   it('removes the pins parameter when no pins remain', () => {
-    const updatedUrl = withPins(new URL(URL_CAPTURED_FROM_WCL), []);
+    const updatedUrl = withQueryChange(new URL(URL_CAPTURED_FROM_WCL), { pinsQueryValue: null, viewParams: null });
 
     expect(updatedUrl.searchParams.has('pins')).toBe(false);
+  });
+
+  it('applies a view saved on one report to another report and changes only the view params', () => {
+    const savedView = readViewParams(new URL(URL_WITH_SAVED_VIEW));
+    const otherReport = new URL(OTHER_REPORT_URL);
+
+    const updatedUrl = withQueryChange(otherReport, { pinsQueryValue: DEATH_BADGE, viewParams: savedView });
+
+    expect(readViewParams(updatedUrl)).toEqual(savedView);
+    expect(readActivePins(updatedUrl)).toEqual([DEATH_BADGE]);
+    expect(updatedUrl.pathname).toBe(otherReport.pathname);
+    expect(withoutViewAndPinParams(updatedUrl)).toEqual(withoutViewAndPinParams(otherReport));
+  });
+
+  it('removes the view params that the saved view does not produce', () => {
+    const debuffsOnEnemies = new URL(`${OTHER_REPORT_URL}&spells=debuffs&hostility=1&ability=1282419`);
+
+    const updatedUrl = withQueryChange(debuffsOnEnemies, { pinsQueryValue: null, viewParams: { tab: 'deaths' } });
+
+    expect(readViewQuery(updatedUrl)).toEqual({ type: 'deaths' });
+  });
+
+  it('resets to the default view for a saved view without params', () => {
+    const updatedUrl = withQueryChange(new URL(OTHER_REPORT_URL), { pinsQueryValue: null, viewParams: {} });
+
+    expect(readViewQuery(updatedUrl)).toEqual({});
   });
 });
 
@@ -82,12 +114,23 @@ const OTHER_REPORT_URL =
   'https://www.warcraftlogs.com/reports/Qm3ZtR8vLp5KxN2w?fight=7&source=12&target=4&boss=2920' +
   '&difficulty=4&wipes=2&start=1000&end=9000&type=casts&view=timeline';
 
+const DEBUFFS_TAB_URL =
+  'https://www.warcraftlogs.com/reports/Xy7KpQ2mWn4RvB8d?fight=5&type=auras&spells=debuffs&hostility=1&ability=1282419';
+
 describe('readViewParams', () => {
-  it('reads only the allow-listed view params', () => {
+  it('reads only the report-independent view params', () => {
     expect(readViewParams(new URL(URL_WITH_SAVED_VIEW))).toEqual({
-      type: 'damage-taken',
+      tab: 'damage-taken',
       ability: '1304424',
       view: 'events',
+    });
+  });
+
+  it('captures the Debuffs tab from type=auras with spells=debuffs, not the Buffs tab', () => {
+    expect(readViewParams(new URL(DEBUFFS_TAB_URL))).toEqual({
+      tab: 'debuffs',
+      hostility: '1',
+      ability: '1282419',
     });
   });
 
@@ -96,41 +139,23 @@ describe('readViewParams', () => {
   });
 });
 
-describe('withViewParams', () => {
-  it('applies a view saved on one report to another report and changes only the allow-listed params', () => {
-    const savedView = readViewParams(new URL(URL_WITH_SAVED_VIEW));
-    const otherReport = new URL(OTHER_REPORT_URL);
+describe('readViewQuery', () => {
+  it('reads the raw view params and skips missing values', () => {
+    const reportUrl = new URL(`${DEBUFFS_TAB_URL}&view=undefined`);
 
-    const updatedUrl = withViewParams(otherReport, savedView);
-
-    expect(readViewParams(updatedUrl)).toEqual(savedView);
-    expect(updatedUrl.pathname).toBe(otherReport.pathname);
-    expect(withoutViewParams(updatedUrl)).toEqual(withoutViewParams(otherReport));
-  });
-
-  it('removes view params that the saved view does not have', () => {
-    const updatedUrl = withViewParams(new URL(OTHER_REPORT_URL), { type: 'deaths' });
-
-    expect(updatedUrl.searchParams.get('type')).toBe('deaths');
-    expect(updatedUrl.searchParams.has('view')).toBe(false);
-    expect(updatedUrl.searchParams.has('ability')).toBe(false);
-  });
-
-  it('resets to the default view for a saved view without params', () => {
-    expect(readViewParams(withViewParams(new URL(OTHER_REPORT_URL), {}))).toEqual({});
-  });
-
-  it('keeps the pins next to the view', () => {
-    const updatedUrl = withViewParams(withPins(new URL(OTHER_REPORT_URL), [DEATH_BADGE]), { type: 'debuffs' });
-
-    expect(readActivePins(updatedUrl)).toEqual([DEATH_BADGE]);
+    expect(readViewQuery(reportUrl)).toEqual({
+      type: 'auras',
+      spells: 'debuffs',
+      hostility: '1',
+      ability: '1282419',
+    });
   });
 });
 
-const VIEW_QUERY_PARAM_SET = new Set<string>(VIEW_QUERY_PARAMS);
+const VIEW_AND_PIN_PARAMS = new Set<string>([...VIEW_QUERY_PARAMS, 'pins']);
 
-function withoutViewParams(url: URL): [string, string][] {
-  return [...url.searchParams].filter(([param]) => !VIEW_QUERY_PARAM_SET.has(param));
+function withoutViewAndPinParams(url: URL): [string, string][] {
+  return [...url.searchParams].filter(([param]) => !VIEW_AND_PIN_PARAMS.has(param));
 }
 
 describe('toPinsQueryValue', () => {

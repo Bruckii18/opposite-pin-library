@@ -39,7 +39,7 @@ describe('ActiveReportStore', () => {
           tabId: 7,
           url: reportUrl,
           activePins: [DEATH_BADGE],
-          view: { type: 'damage-taken', ability: '1304424' },
+          view: { tab: 'damage-taken', ability: '1304424' },
         },
       }),
     );

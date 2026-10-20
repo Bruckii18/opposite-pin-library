@@ -1,11 +1,10 @@
 import { z } from 'zod';
 import { validatePinString, type PinString } from '../wcl/pinString';
-import { pickViewParams } from '../wcl/viewParams';
+import { sanitizeViewParams } from '../wcl/viewParams';
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 5;
 
-export const savedPinIdSchema = z.string().min(1).brand<'SavedPinId'>();
-export const pinSetIdSchema = z.string().min(1).brand<'PinSetId'>();
+export const libraryEntryIdSchema = z.string().min(1).brand<'LibraryEntryId'>();
 
 export const pinStringSchema = z.string().transform((raw, context): PinString => {
   const validation = validatePinString(raw);
@@ -16,27 +15,16 @@ export const pinStringSchema = z.string().transform((raw, context): PinString =>
   return validation.pinString;
 });
 
-export const viewParamsSchema = z.record(z.string(), z.string()).transform(pickViewParams);
+export const viewParamsSchema = z.record(z.string(), z.unknown()).transform(sanitizeViewParams);
 
 const timestampSchema = z.iso.datetime();
 
-export const savedPinSchema = z.object({
-  id: savedPinIdSchema,
+export const libraryEntrySchema = z.object({
+  id: libraryEntryIdSchema,
   name: z.string().min(1),
   description: z.string(),
   tags: z.array(z.string()),
-  pinString: pinStringSchema,
-  viewParams: viewParamsSchema.optional(),
-  createdAt: timestampSchema,
-  updatedAt: timestampSchema,
-});
-
-export const pinSetSchema = z.object({
-  id: pinSetIdSchema,
-  name: z.string().min(1),
-  description: z.string(),
-  tags: z.array(z.string()),
-  pinIds: z.array(savedPinIdSchema),
+  pins: z.array(pinStringSchema),
   viewParams: viewParamsSchema.optional(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
@@ -44,16 +32,13 @@ export const pinSetSchema = z.object({
 
 export const pinLibrarySchema = z.object({
   schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),
-  pins: z.array(savedPinSchema),
-  sets: z.array(pinSetSchema),
+  entries: z.array(libraryEntrySchema),
 });
 
-export type SavedPinId = z.infer<typeof savedPinIdSchema>;
-export type PinSetId = z.infer<typeof pinSetIdSchema>;
-export type SavedPin = z.infer<typeof savedPinSchema>;
-export type PinSet = z.infer<typeof pinSetSchema>;
+export type LibraryEntryId = z.infer<typeof libraryEntryIdSchema>;
+export type LibraryEntry = z.infer<typeof libraryEntrySchema>;
 export type PinLibrary = z.infer<typeof pinLibrarySchema>;
 
 export function createEmptyLibrary(): PinLibrary {
-  return { schemaVersion: CURRENT_SCHEMA_VERSION, pins: [], sets: [] };
+  return { schemaVersion: CURRENT_SCHEMA_VERSION, entries: [] };
 }

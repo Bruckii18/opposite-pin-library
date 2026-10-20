@@ -1,31 +1,33 @@
 import { useMemo } from 'react';
-import { findPinByPinString } from '../../library/libraryOperations';
-import type { SavedPin } from '../../library/librarySchema';
+import { findGroupsContainingPin, findSinglePinEntry } from '../../library/libraryOperations';
+import type { LibraryEntry } from '../../library/librarySchema';
 import { withOccurrenceKeys } from '../../shared/occurrenceKeys';
 import type { PinString } from '../../wcl/pinString';
 import type { ViewParams } from '../../wcl/viewParams';
+import { entryFormValuesForActivePins } from '../forms/entryFormModel';
+import { CAPTURE_VIEW_TOGGLE_LABEL } from '../forms/viewFormModel';
 import { useActivePinSaving } from '../hooks/useActivePinSaving';
 import { ActivePinRow } from './ActivePinRow';
-import { SaveActivePinsAsSetForm } from './SaveActivePinsAsSetForm';
+import { EntryForm } from './EntryForm';
 
 type ActiveReportPinsProps = {
   readonly activePins: readonly PinString[];
   readonly activeView: ViewParams;
-  readonly libraryPins: readonly SavedPin[];
+  readonly libraryEntries: readonly LibraryEntry[];
 };
 
-export function ActiveReportPins({ activePins, activeView, libraryPins }: ActiveReportPinsProps) {
-  const saving = useActivePinSaving(activePins);
+export function ActiveReportPins({ activePins, activeView, libraryEntries }: ActiveReportPinsProps) {
+  const saving = useActivePinSaving();
   const keyedPins = useMemo(() => withOccurrenceKeys(activePins), [activePins]);
-  const hasActivePins = activePins.length > 0;
+  const canSaveAll = activePins.length > 1;
 
   return (
-    <section className="section" aria-label="Pins on this report">
+    <section className="report-band" aria-label="Pins on this report">
       <div className="section-header">
         <h2 className="section-title">This report</h2>
         <span className="count">{activePins.length} active</span>
       </div>
-      {!hasActivePins && (
+      {activePins.length === 0 && (
         <p className="muted">
           No pins are active. Add pins with WCL’s Queries tab, then save them here.
         </p>
@@ -36,7 +38,8 @@ export function ActiveReportPins({ activePins, activeView, libraryPins }: Active
             key={key}
             pin={pin}
             activeView={activeView}
-            savedPin={findPinByPinString(libraryPins, pin)}
+            savedEntry={findSinglePinEntry(libraryEntries, pin)}
+            containingEntries={findGroupsContainingPin(libraryEntries, pin)}
             isSaveFormOpen={saving.pinBeingSaved === pin}
             onStartSaving={() => saving.startSavingPin(pin)}
             onSave={saving.savePin}
@@ -44,17 +47,20 @@ export function ActiveReportPins({ activePins, activeView, libraryPins }: Active
           />
         ))}
       </ul>
-      {hasActivePins && !saving.isSavingAsSet && (
-        <button type="button" className="button button--small" onClick={saving.startSavingAsSet}>
-          Save all as set
+      {canSaveAll && !saving.isSavingAll && (
+        <button type="button" className="button button--small" onClick={saving.startSavingAll}>
+          Save all together
         </button>
       )}
-      {saving.isSavingAsSet && (
-        <SaveActivePinsAsSetForm
-          pinCount={activePins.length}
-          activeView={activeView}
-          onSubmit={saving.saveAsSet}
-          onCancel={saving.cancelSavingAsSet}
+      {saving.isSavingAll && (
+        <EntryForm
+          title={`Save ${activePins.length} active pins together`}
+          initialValues={entryFormValuesForActivePins(activePins, activeView)}
+          canEditPins={false}
+          viewToggleLabel={CAPTURE_VIEW_TOGGLE_LABEL}
+          submitLabel="Save"
+          onSubmit={saving.saveAll}
+          onCancel={saving.cancelSavingAll}
         />
       )}
     </section>
