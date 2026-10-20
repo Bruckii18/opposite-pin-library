@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "npm run typecheck && node scripts/build.ts",
+    "package": "npm run build && rm -f opposite-pin-library.zip && cd dist && zip -qr ../opposite-pin-library.zip .",
     "watch": "node scripts/build.ts --watch",
     "test": "vitest run",
     "test:watch": "vitest",

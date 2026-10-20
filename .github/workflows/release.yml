@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Check that the tag matches the manifest version
+        run: |
+          manifest_version=$(node -p "require('./public/manifest.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$manifest_version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match public/manifest.json version $manifest_version." >&2
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run package
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zip_name="opposite-pin-library-$GITHUB_REF_NAME.zip"
+          mv opposite-pin-library.zip "$zip_name"
+          gh release create "$GITHUB_REF_NAME" "$zip_name" --title "$GITHUB_REF_NAME" --generate-notes

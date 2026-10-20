@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "Save, organize and re-apply Warcraft Logs pins.",
   "minimum_chrome_version": "141",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw2fPonVsgdeYrJPkH7BQ09k5G/P6OrxXbdMGW+Nvz+mZ3NYyJ5XMZ4oWBDaF6fwP/9fV80tcZwlz/JWqFowsTKo0wqHXt4bqZUsSaWyDwe0gVbYEbUv4CUKmBU8qpiyCLezDnWNdrLgZsgbfdV3r4aHTnZpymSIYnEBu2Wd/Rd86R+qMlJIHfW6tM9rWOCRPOQFRN1uhc6sz6JdDyPKMWaX8YkqPtcEkUOiilmFOFIMDuSFAR88v+tXBlS0gfCzgwIVXx4DTW+SRB4PQK6qQk7Q2IVZ8ocGRSGEKCKe8GnFNHfLPyz30kfR872BxQ+iHnSRcQTKWoihUjHOuSQwcvQIDAQAB",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",

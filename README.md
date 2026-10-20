@@ -20,7 +20,35 @@ searchable library, groups them into sets and applies them to the open report wi
 
 ## Install
 
-Requirements: Node.js 22.18 or newer, and Chrome 141 or newer.
+Requires Chrome 141 or newer (or Edge, Brave or Arc, see below). The extension is not in the Chrome
+Web Store, so it is installed as an unpacked extension.
+
+### From a GitHub release (no build tools needed)
+
+1. Download `opposite-pin-library-vX.Y.Z.zip` from the
+   [latest release](https://github.com/Bruckii18/opposite-pin-library/releases/latest).
+2. Unzip it into a folder you will keep, for example `Documents/Opposite Pin Library`. Chrome
+   loads the extension from that folder, so don't delete or move it.
+3. Open `chrome://extensions` and switch on **Developer mode** (top right).
+4. Click **Load unpacked** and select the unzipped folder (the one that contains `manifest.json`).
+5. Pin the extension to the toolbar if you like.
+
+If a WCL tab was already open before you installed the extension, reload that tab once so the
+content script gets injected.
+
+**Updating:** unpacked extensions don't update by themselves.
+
+1. Export your library first (**Export library** in the panel footer), just in case.
+2. Download the new ZIP and unzip it over the same folder, replacing the old files.
+3. Click the reload icon on the extension's card in `chrome://extensions`, then reload open WCL
+   tabs.
+
+Your library is kept. Don't click **Remove** on the extension card: removing an extension deletes
+its stored library.
+
+### From source
+
+Requirements: Node.js 22.18 or newer.
 
 ```bash
 npm install
@@ -30,12 +58,7 @@ npm install
 npm run build
 ```
 
-1. Open `chrome://extensions` and switch on **Developer mode**.
-2. Click **Load unpacked** and select the `dist/` folder.
-3. Pin the extension to the toolbar if you like.
-
-If a WCL tab was already open before you installed the extension, reload that tab once so the
-content script gets injected.
+Then load the `dist/` folder with **Load unpacked** as described above.
 
 ### Arc and other Chromium browsers
 
@@ -276,3 +299,27 @@ the default macOS location.
 - Template pins with variables such as `{{spellId}}` or `{{player}}`, filled in when applied.
 - Suggestions based on the boss or encounter.
 - Optional sync backend.
+- `npm run package` builds and zips `dist/` into `opposite-pin-library.zip`, the same file a
+  release attaches.
+
+### Releasing
+
+1. Bump `version` in [public/manifest.json](public/manifest.json) and [package.json](package.json).
+2. Commit, then tag the commit with the same version and push the tag:
+
+   ```bash
+   git tag v0.2.0
+   ```
+
+   ```bash
+   git push origin v0.2.0
+   ```
+
+3. The [Release workflow](.github/workflows/release.yml) checks that the tag matches the manifest
+   version, runs lint and tests, builds, and publishes a GitHub release with
+   `opposite-pin-library-v0.2.0.zip` attached and generated release notes.
+
+The manifest contains a fixed public `key`, so the extension always gets the same ID
+(`hmpbnifmjbmefcchdkflallonbijdpgd`), no matter which folder it is loaded from. Chrome stores the
+library per extension ID, so this keeps the library across updates. Don't change or remove the
+key: every install would then start with an empty library.
